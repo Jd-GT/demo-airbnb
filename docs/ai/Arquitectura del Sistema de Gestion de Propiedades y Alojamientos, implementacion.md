@@ -1,0 +1,123 @@
+- - # Plan de Desarrollo y Estrategia de Equipo (SaaS PMS)
+
+    Este documento define cómo un equipo de 4 personas (1 Frontend, 3 Full-Stack/Python) debe organizarse para construir el PMS usando Django REST Framework (DRF) y React (Next.js), garantizando que el código sea mantenible, escalable y no se convierta en un "spaghetti" de código.
+
+    ------
+
+    ## 1. Distribución del Equipo (Roles)
+
+    Dado el perfil del equipo (1 React fuerte, 3 Python fuertes), la estrategia ideal es **desacoplar completamente el Frontend del Backend** y usar un enfoque de *API-First*.
+
+    ### Miembro 1: "The Frontend Lead" (Especialista React)
+
+    - **Responsabilidad**: Todo el repositorio de Next.js.
+    - **Tareas**: Creación de componentes UI/UX, integración de la API, manejo del estado global (Redux/Zustand), y el contexto del Tenant (SaaS branding).
+    - **Regla de Oro**: Nunca bloqueado por el Backend. Si un endpoint no existe, crea un *Mock* (JSON estático) de la respuesta esperada y sigue construyendo la UI.
+
+    ### Miembro 2: "The Core Builder" (Arquitecto Backend)
+
+    - **Responsabilidad**: Diseñar la base sólida del repo Django.
+    - **Tareas**: Configurar el `TenantMiddleware`, modelos base (`AbstractBaseModel` con `tenant_id`), autenticación JWT, y configuración de AWS (CI/CD básico).
+    - **Aporte**: Asegura que nadie rompa el aislamiento SaaS.
+
+    ### Miembro 3: "The Domain Expert" (Backend - Reservations & Pricing)
+
+    - **Responsabilidad**: La lógica de negocio más dura.
+    - **Tareas**: Modelos de `Reservation`, `PriceRules`, y el endpoint de cotización (`/quote`) que es el corazón matemático del sistema.
+
+    ### Miembro 4: "The Integrator" (Backend - CRM, Finanzas & Ops)
+
+    - **Responsabilidad**: Módulos adyacentes al Core.
+    - **Tareas**: Modelos de `Leads`, `Payments`, `AnalyticAccounts`, `Tasks`. Desarrollo del motor de plantillas y generación de PDFs.
+
+    ------
+
+    ## 2. Estrategia de Código: ¿Cómo no enredarse?
+
+    **SÍ, hay que hacer un "Código Base" (Scaffolding) antes de que todos empiecen a programar.**
+
+    ### A. Repositorios Separados (Monorepo vs Polyrepo)
+
+    Recomendación: **Dos repositorios separados** (`pms-backend` y `pms-frontend`).
+
+    - Esto evita conflictos de merge entre mundos distintos y permite despliegues independientes a AWS (ECS para Django, Amplify para Next.js).
+
+    ### B. El "Core App" en Django (El Código Base)
+
+    El Arquitecto (Miembro 2) debe pasar la **Semana 1** creando la base antes de que los demás toquen el backend.
+
+    1. **Apps Estructuradas**: En Django, NO meter todo en una app.
+
+       - `apps/core/` (Tenants, Usuarios, Middleware, Modelos Base abstractos).
+       - `apps/inventory/` (Propiedades, Amenities).
+       - `apps/crm/` (Contactos, Leads).
+       - `apps/booking/` (Reservas, Líneas, Tarifas).
+       - `apps/finance/` (Pagos, Impuestos, Analítica).
+
+    2. **Modelo Base Abstracto**: Todo modelo debe heredar de esto (excepto Tenant):
+
+       ```py
+       python
+       class TenantAwareModel(models.Model):
+       
+           tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+       
+           created_at = models.DateTimeField(auto_now_add=True)
+       
+           # El manager por defecto filtra por el tenant actual del request
+       
+           objects = TenantManager() 
+       
+           class Meta: abstract = True
+       ```
+
+       Así nadie "olvida" filtrar por Tenant.
+
+    ### C. El Contrato de API (Swagger/OpenAPI)
+
+    ¡Vital para que el Frontend y Backend trabajen en paralelo!
+
+    - Antes de escribir código, definan cómo se verán los JSON en una herramienta como Swagger o Postman.
+    - El Frontend asume que ese JSON existe y programa. El Backend programa para que su respuesta coincida con ese JSON.
+
+    ------
+
+    ## 3. Flujo de Trabajo (Git & Sprints)
+
+    ### Git Flow Simplificado (Ramas)
+
+    1. `main`: Código en producción (AWS).
+    2. `develop`: Código integrado y probado.
+    3. `feature/booking-engine`: Ramas creadas desde `develop` por cada desarrollador.
+
+    - **Regla**: Nadie hace commit a `develop` directo. Todo pasa por un Pull Request (PR). El Arquitecto (Miembro 2) o el Frontend Lead aprueban el código.
+
+    ### Fases de Desarrollo (Sprints Recomendados)
+
+    **Sprint 0: Cimientos (1 Semana)**
+
+    - Backend: Configurar Django, PostgreSQL, Modelos Base DUMB (solo tablas, sin lógica).
+    - Frontend: Repositorio Next.js, Layouts principales, Theming de Tailwind, Mockups de UI.
+    - API: Documento de Swagger acordado.
+
+    **Sprint 1: Inventario y CRM (2 Semanas)**
+
+    - Backend (Dev 3 y 4): Endpoints CRUD de Propiedades, Contactos y Leads.
+    - Frontend (Dev 1): Pantallas de Listado y Creación de Inmuebles, Kanban de CRM.
+
+    **Sprint 2: El Motor de Reservas (3 Semanas)**
+
+    - Backend (Dev 2 y 3): Lógica del Precio, Disponibilidad, Creación de Reserva. Endpoint de `/quote`.
+    - Frontend (Dev 1 y 4 - *Dev 4 apoya en Front si sabe algo de JS*): Calendario Interactivo, Cotizador, Flujo de creación de compra.
+
+    **Sprint 3: Finanzas y Operaciones (2 Semanas)**
+
+    - Backend (Dev 3 y 4): Pagos, Cuentas Analíticas, Generación de PDF. Tareas de Limpieza.
+    - Frontend (Dev 1): Dashboard financiero, Lista de Tareas, Vista de Recibos.
+
+    **Sprint 4: Pulido y Lanzamiento Técnico (AWS)**
+
+    - Despliegue de DB a RDS.
+    - Despliegue de Django a Elastic Beanstalk o ECS.
+    - Despliegue de Next.js a AWS Amplify.
+    - Pruebas de extremo a extremo (E2E).
