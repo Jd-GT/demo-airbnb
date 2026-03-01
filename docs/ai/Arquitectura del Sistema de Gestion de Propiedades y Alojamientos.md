@@ -4,6 +4,27 @@
 
 A continuación se describen las entidades principales que componen el dominio, detallando su responsabilidad, requisitos cubiertos y nivel de complejidad.
 
+1. A nivel macro (El Sistema Completo): Arquitectura Cliente-Servidor Desacoplada (Decoupled Architecture)
+No estamos haciendo una aplicación monolítica tradicional donde el servidor (Python) escupe el HTML. El Frontend (React/Next.js) y el Backend (Django REST Framework) viven en repositorios separados, se despliegan en servicios de AWS separados (Amplify vs ECS) y solo se comunican a través de una API REST. Esta es una arquitectura Headless o API-First.
+
+2. A nivel de dominio e infraestructura: Arquitectura multi-inquilino (SaaS Multi-tenant Architecture)
+Este es el rasgo de negocio más importante.
+
+No es un Single-tenant (una base de datos y servidor por cada inmobiliaria).
+En nuestro caso, es un Multi-tenant con base de datos compartida y esquema compartido (todos los clientes usan la misma base de datos PostgreSQL, pero las filas están aisladas rígidamente por la columna tenant_id). Esto hace que el costo de infraestructura en AWS sea muy bajo al inicio y sea súper escalable.
+3. A nivel de Backend (Django): Monolito Modular (Modular Monolith Architecture)
+Aunque Django en su conjunto es una sola aplicación (es decir, no estamos haciendo Microservicios en Kubernetes, lo cual sería excesivo y costoso para un equipo de 4 personas), la forma internamente estructurada que definimos en el plan de desarrollo (Apps separadas: core, inventory, crm, booking, finance) la convierte en un Monolito Modular.
+
+¿Por qué es bueno? Tienes la velocidad de desarrollo de un monolito (fácil testeo, una sola BD, despliegue simple), pero con las fronteras del código bien delimitadas. Si en 3 años el "Motor de Precios" se vuelve tan complejo que necesita su propio servidor, es muy fácil "arrancarlo" de Django y volverlo un microservicio porque ya estaba en un módulo separado.
+4. A nivel de integraciones: Arquitectura Hexagonal / Puertos y Adaptadores (Ports and Adapters)
+En la sección de integraciones con Airbnb, Booking y WhatsApp del documento 
+
+architecture.md
+, propusimos el uso de Adaptadores (Channel Manager Adapter).
+
+Esto significa que el núcleo del negocio (tu motor de reservas) no "sabe" cómo habla Airbnb. Solo sabe hablar con un "Puerto genérico". Es el "Adaptador de Airbnb" el que traduce de la API de Airbnb a tu sistema.
+Esto hace que el sistema sea resistente a cambios externos (si Airbnb rompe su API, tu sistema base no cae, solo falla el adaptador).
+
 | Entidad                            | Descripción y Rol                                            | Requerimiento Cubierto                                       | Complejidad |
 | :--------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :---------- |
 | **Tenant** (Inquilino SaaS)        | Representa a la empresa o host que usa la plataforma (e.g., "Inmobiliaria Caribe"). Aísla los datos y configuraciones. | **SaaS Multi-tenant**: Permitir múltiples clientes en una sola infraestructura con marca propia. | Alta        |
