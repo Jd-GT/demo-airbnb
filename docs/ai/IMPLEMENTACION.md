@@ -2,6 +2,8 @@
 
     Este documento define cómo un equipo de 4 personas (1 Frontend, 3 Full-Stack/Python) debe organizarse para construir el PMS usando Django REST Framework (DRF) y React (Next.js), garantizando que el código sea mantenible, escalable y no se convierta en un "spaghetti" de código.
 
+    LAS INSTRUCCIONES SE ENCUENTRAN EN: ETAPA ACTUAL DE PROYECTO, leer TODOS los Archivos para indicar los prompts antes de iniciar incluyendo este.
+
     ## Archivos para indicar los prompts
     - EXPLICACION_TABLAS.md, 
         - Aqui estan las tablas y modelos que se usaran en el SAAS a construir, y componentes del sistema
@@ -12,8 +14,19 @@
     - user_stories.md 
         - Historias de usuario, las cuales vas a ir marcando como completadas segun el alcance del sprint y del codigo desarrollado
     ------
+    ## Archivos importantes:
+    - /demoairbnb: 
+         - Base DJANGO REST FRAMEWORK donde se deben implementar las funcionalidades indicadas en la seccion de ETAPA DE PROYECTO
+    - /documentacion (esta la crearas tu) y documentaras el codigo y cambios que haces en el /demoairbnb
+    - /requirements.txt
+    - /BACKEND_FRONT_API.md (lo creas tu) se debe documentar las apis y endpoints que el FRONTEND DEV debe conocer para desarrollar el FRONT.
 
+    ## ETAPA ACTUAL DE PROYECTO
 
+    1) Actualmente no se tiene nada implementado
+    2) Se requiere hacer unicamente el sprint 1, y se debe dejar listo para empezar el sprint 2, leer primero todos `Archivos para indicar los prompts` para entender el concepto del SAAS a implementar.
+    3) SOLO SE TRABAJA EL BACK y debemos tener presente la creacion de un JSON o documentacion necesaria que requiere el desarrollador front para integrar el back, esto debe ir documentado en /BACKEND_FRONT_API
+    4) MARCAR HISTORIAS USUARIO A MEDIDA QUE DESARROLLA EL CODIGO BASE: user_stories, marcar con un CHECK [x]
     ------
     
     ## 0. Descripción de los Componentes
@@ -138,28 +151,23 @@
 
     ### Git Flow Simplificado (Ramas)
 
-    1. `main`: Código en producción (AWS).
-    2. `develop`: Código integrado y probado.
-    3. `feature/booking-engine`: Ramas creadas desde `develop` por cada desarrollador.
+    1. `main`: Código en producción.
+    2. `staging`: Código integrado y probado.
+    3. `dev`: Ramas creadas desde `staging` por cada desarrollador, donde se implementan nuevas funcionalidades a partir de la base, `staging`.
 
-    - **Regla**: Nadie hace commit a `develop` directo. Todo pasa por un Pull Request (PR). El Arquitecto (Miembro 2) o el Frontend Lead aprueban el código.
+    ### Fases de Desarrollo (Sprints Recomendados)  
 
-    ### Fases de Desarrollo (Sprints Recomendados)
-
-    **Sprint 0: Cimientos (1 Semana)**
-
+    **Sprint 1: Inventario y CRM (1-2 Semanas)**
     - Backend: Configurar Django, PostgreSQL, Modelos Base DUMB (solo tablas, sin lógica).
     - Frontend: Repositorio Next.js, Layouts principales, Theming de Tailwind, Mockups de UI.
-    - API: Documento de Swagger acordado.
-
-    **Sprint 1: Inventario y CRM (2 Semanas)**
-
+    - API: Documento de Swagger acordado.****
     - Backend (Dev 3 y 4): Endpoints CRUD de Propiedades, Contactos y Leads.
     - Frontend (Dev 1): Pantallas de Listado y Creación de Inmuebles, Kanban de CRM.
+    - Funcionalidades: Disponibilidad, Creación de Reserva. Endpoint de `/quote`, Creacion de los tenants, usuarios y propiedades.
 
     **Sprint 2: El Motor de Reservas (3 Semanas)**
 
-    - Backend (Dev 2 y 3): Lógica del Precio, Disponibilidad, Creación de Reserva. Endpoint de `/quote`.
+    - Backend (Dev 2 y 3): Lógica del Precio, 
     - Frontend (Dev 1 y 4 - *Dev 4 apoya en Front si sabe algo de JS*): Calendario Interactivo, Cotizador, Flujo de creación de compra.
 
     **Sprint 3: Finanzas y Operaciones (2 Semanas)**
