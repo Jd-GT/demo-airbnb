@@ -2,6 +2,15 @@
 
     Este documento define cómo un equipo de 4 personas (1 Frontend, 3 Full-Stack/Python) debe organizarse para construir el PMS usando Django REST Framework (DRF) y React (Next.js), garantizando que el código sea mantenible, escalable y no se convierta en un "spaghetti" de código.
 
+    ## Archivos para indicar los prompts
+    - EXPLICACION_TABLAS.md, 
+        - Aqui estan las tablas y modelos que se usaran en el SAAS a construir
+    - IMPLEMENTACION.md
+        - Archivo actual 
+    - ARQUITECTURA_TABLAS.md, 
+        - Explicacion y sustentacion de los detalles de cada tabla y relacionamiento entre ellas (leer siempre EXPLICACION.md antes de leer este )
+    - user_stories.md 
+        - Historias de usuario, las cuales vas a ir marcando como completadas segun el alcance del sprint y del codigo desarrollado
     ------
 
     ## 1. Distribución del Equipo (Roles)
