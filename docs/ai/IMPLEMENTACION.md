@@ -1,4 +1,4 @@
-- - # Plan de Desarrollo y Estrategia de Equipo (SaaS PMS)
+- # Plan de Desarrollo y Estrategia de Equipo (SaaS PMS)
 
     Este documento define cómo un equipo de 4 personas (1 Frontend, 3 Full-Stack/Python) debe organizarse para construir el PMS usando Django REST Framework (DRF) y React (Next.js), garantizando que el código sea mantenible, escalable y no se convierta en un "spaghetti" de código.
 
