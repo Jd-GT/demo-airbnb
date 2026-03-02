@@ -4,7 +4,7 @@
 
     ## Archivos para indicar los prompts
     - EXPLICACION_TABLAS.md, 
-        - Aqui estan las tablas y modelos que se usaran en el SAAS a construir
+        - Aqui estan las tablas y modelos que se usaran en el SAAS a construir, y componentes del sistema
     - IMPLEMENTACION.md
         - Archivo actual 
     - ARQUITECTURA_TABLAS.md, 
@@ -12,6 +12,49 @@
     - user_stories.md 
         - Historias de usuario, las cuales vas a ir marcando como completadas segun el alcance del sprint y del codigo desarrollado
     ------
+
+
+    ------
+    
+    ## 0. Descripción de los Componentes
+    
+    A continuación se detallan los subsistemas técnicos que implementan la solución.
+    
+    ### A. Frontend: Portal Web (Spa & Dashboard)
+    
+    - **Tecnología**: **Next.js (React)** + TailwindCSS.
+    - **Rol**: Interfaz de usuario para administradores y huéspedes.
+    - **Sub-componentes**:
+      - *SaaS Context Provider*: Carga dinámicamente colores y logos según el subdominio.
+      - *Dashboard View*: Gráficos de ocupación e ingresos.
+      - *Calendar Component*: Vista drag-and-drop de reservas.
+      - *Guest Portal*: Vista pública read-only para el huésped.
+    
+    ### B. Backend: API RESTful & Lógica de Negocio
+    
+    - **Tecnología**: **Python (Django REST Framework)**.
+    - **Rol**: Orquestador central. Procesa reglas de negocio, validaciones y seguridad.
+    - **Sub-componentes**:
+      - *Pricing Engine*: Calcula precios complejos basados en fechas y reglas.
+      - *Tenant Middleware*: Asegura el aislamiento de datos entre clientes.
+      - *Doc Generator*: Servicio (usando WeasyPrint) que renderiza PDFs desde HTML.
+    
+    ### C. Base de Datos Relacional
+    
+    - **Tecnología**: **PostgreSQL (AWS RDS)**.
+    - **Rol**: Persistencia de datos transaccional segura.
+    - **Características**: Uso de Foreign Keys estrictas, Check Constraints para integridad de datos y particionado lógico por `tenant_id`.
+    
+    ### D. Capa de Integración (Channel Manager Adapter)
+    
+    - **Tecnología**: Python (Módulos internos).
+    - **Rol**: Abstracción de APIs externas. Permite conectar nuevas plataformas sin romper el núcleo.
+    - **Adaptadores**:
+      - `AirbnbAdapter`: Sincronización vía iCal (MVP) o API oficial.
+      - `WhatsAppService`: Envío de mensajes vía API (Twilio/Meta).
+    
+    ------
+
 
     ## 1. Distribución del Equipo (Roles)
 
