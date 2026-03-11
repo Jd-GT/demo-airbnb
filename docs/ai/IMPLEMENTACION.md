@@ -22,6 +22,7 @@
     - /BACKEND_FRONT_API.md (lo creas tu) se debe documentar las apis y endpoints que el FRONTEND DEV debe conocer para desarrollar el FRONT.
 
     ## ETAPA ACTUAL DE PROYECTO
+    NOTA: Antes de iniciar, leer TODOS los Archivos para indicar los prompts incluyendo este, para entender el alcance del proyecto y la estrategia de desarrollo, ADEMAS, el codigo debe ser organizado, arquitectura LIMPIA, documentacion clara, y con un enfoque en la mantenibilidad y escalabilidad a largo plazo, principios SOLID, y que no se convierta en un "spaghetti code" donde todo depende de todo y es difícil de entender o modificar sin romper algo.
 
     1) Actualmente no se tiene nada implementado
     2) Se requiere hacer unicamente el sprint 1, y se debe dejar listo para empezar el sprint 2, leer primero todos `Archivos para indicar los prompts` para entender el concepto del SAAS a implementar.
