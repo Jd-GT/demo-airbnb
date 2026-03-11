@@ -113,11 +113,18 @@
 
     1. **Apps Estructuradas**: En Django, NO meter todo en una app.
 
-       - `apps/core/` (Tenants, Usuarios, Middleware, Modelos Base abstractos).
+       - `apps/core/` (Tenants, **TenantRoles**, Usuarios, Middleware, Modelos Base abstractos).
        - `apps/inventory/` (Propiedades, Amenities).
        - `apps/crm/` (Contactos, Leads).
        - `apps/booking/` (Reservas, Líneas, Tarifas).
        - `apps/finance/` (Pagos, Impuestos, Analítica).
+
+       **Importante — Gestión de Roles y Permisos (US-1.1.1)**:
+       El módulo `apps/core/` es responsable de todo el sistema IAM (Identity & Access Management). La estructura de permisos usa RBAC (Role-Based Access Control) ligero:
+       - `TenantRole`: Define roles personalizados por Tenant con un JSON de permisos por módulo.
+       - `User`: Referencia un `TenantRole` (excepto `OWNER` que tiene acceso irrestricto).
+       - El `TenantMiddleware` no solo aísla datos sino que también verifica que `user.role.permissions[modulo]` tenga el nivel requerido (`none` | `read` | `write` | `admin`) antes de dejar pasar cualquier request.
+       - **Regla de seguridad**: Nunca confiar en el frontend para ocultar secciones. Todo permiso se valida en el backend en cada endpoint.
 
     2. **Modelo Base Abstracto**: Todo modelo debe heredar de esto (excepto Tenant):
 
@@ -160,10 +167,17 @@
     **Sprint 1: Inventario y CRM (1-2 Semanas)**
     - Backend: Configurar Django, PostgreSQL, Modelos Base DUMB (solo tablas, sin lógica).
     - Frontend: Repositorio Next.js, Layouts principales, Theming de Tailwind, Mockups de UI.
-    - API: Documento de Swagger acordado.****
+    - API: Documento de Swagger acordado.
     - Backend (Dev 3 y 4): Endpoints CRUD de Propiedades, Contactos y Leads.
     - Frontend (Dev 1): Pantallas de Listado y Creación de Inmuebles, Kanban de CRM.
-    - Funcionalidades: Disponibilidad, Creación de Reserva. Endpoint de `/quote`, Creacion de los tenants, usuarios y propiedades.
+    - Funcionalidades: Disponibilidad, Creación de Reserva. Endpoint de `/quote`, Creación de los tenants, usuarios y propiedades.
+    - **[US-1.1.1] Gestión de Usuarios y Roles (Miembro 2 — Core Builder)**:
+      - Endpoint `POST /api/tenants/{id}/roles/` — Crear un rol personalizado con JSON de permisos.
+      - Endpoint `GET/PUT/DELETE /api/tenants/{id}/roles/{role_id}/` — Administrar roles.
+      - Endpoint `POST /api/tenants/{id}/users/` — Invitar/crear usuario y asignarle un rol.
+      - Endpoint `PATCH /api/tenants/{id}/users/{user_id}/` — Cambiar rol o desactivar usuario (`is_active=false`).
+      - Seed automático al crear un Tenant: crear rol `Admin Total` (todos los módulos en `admin`) y rol `Solo Lectura` (todos en `read`) como defaults.
+      - El primer usuario del Tenant se crea con `system_role=OWNER` y nunca puede ser degradado ni desactivado.
 
     **Sprint 2: El Motor de Reservas (3 Semanas)**
 

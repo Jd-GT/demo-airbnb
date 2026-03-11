@@ -18,17 +18,38 @@
   | `branding_config` | JSON | Configuración visual: `{ "logo_url": "...", "primary_color": "#FF5733" }`. Permite que la app luzca como propia del cliente. |
   | `integration_config` | JSON | Claves de API externas encriptadas: `{ "airbnb_key": "...", "whatsapp_token": "..." }`. |
 
-  ### Tabla: `users` (Usuarios del Sistema)
+  ### Tabla: `tenant_roles` (Roles Personalizados por Tenant)
   **Descripción General del Modelo**:
-  Representa a una persona física con credenciales para acceder al **Panel Administrativo** (Backoffice). No confundir con "Contacts" (Huéspedes). Los usuarios son el Staff de la empresa (Administradores, Agentes de Reservas, Personal de Limpieza). Cada usuario pertenece obligatoriamente a un solo Tenant.
+  Permite que cada Tenant defina sus propios roles con permisos granulares por módulo. Un Administrador puede crear un rol "Solo Lectura" o "Editor de Reservas" y asignárselo a cualquier usuario de su empresa. Los permisos se modelan como un JSON estructurado donde cada clave es un módulo del sistema y el valor es el nivel de acceso (`none`, `read`, `write`, `admin`).
+
+  **Ejemplo real**: "Inmobiliaria Caribe" crea el rol `Agente Básico` con `{"reservations": "read", "payments": "none"}` y se lo asigna a Carolina. Jorge recibe el rol `Admin Total` con todos los módulos en `admin`.
 
   | Campo | Tipo | Descripción |
   | :--- | :--- | :--- |
   | `id` | UUID (PK) | Identificador único. |
-  | `email` | String | Email de login (debe ser único por Tenant). |
+  | `tenant_id` | UUID (FK) | Tenant dueño del rol. Roles no se comparten entre Tenants. |
+  | `name` | String | Nombre descriptivo del rol (e.g., "Solo Lectura", "Editor Reservas", "Admin Total"). |
+  | `permissions` | JSON | Mapa de permisos por módulo. Estructura: `{ "properties": "read", "reservations": "write", "payments": "none", "reports": "read", "users": "none", "finance": "none" }`. Niveles válidos: `none`, `read`, `write`, `admin`. |
+  | `is_default` | Boolean | Si `true`, es el rol base que reciben los usuarios nuevos. Solo puede haber uno por Tenant. |
+
+  ---
+
+  ### Tabla: `users` (Usuarios del Sistema)
+  **Descripción General del Modelo**:
+  Representa a una persona física con credenciales para acceder al **Panel Administrativo** (Backoffice). No confundir con "Contacts" (Huéspedes). Los usuarios son el Staff de la empresa (Administradores, Agentes de Reservas, Personal de Limpieza). Cada usuario pertenece obligatoriamente a un solo Tenant y su nivel de acceso está determinado por el `tenant_role` que tenga asignado.
+
+  El primer usuario creado al registrar un Tenant recibe automáticamente permisos de `OWNER` (no editable), lo que garantiza que siempre haya al menos un administrador que pueda gestionar los demás usuarios.
+
+  | Campo | Tipo | Descripción |
+  | :--- | :--- | :--- |
+  | `id` | UUID (PK) | Identificador único. |
+  | `email` | String | Email de login (debe ser único a nivel global). |
   | `password_hash` | String | Contraseña encriptada (bcrypt/argon2). |
   | `tenant_id` | UUID (FK) | Vincula al usuario con una empresa específica. |
-  | `role` | Enum | `ADMIN` (Configuración total), `STAFF` (Solo operativo), `CLEANER` (Solo ver tareas de limpieza). |
+  | `role_id` | UUID (FK → `tenant_roles`) | Rol asignado dentro de este Tenant. Define los permisos concretos del usuario. |
+  | `system_role` | Enum | `OWNER` (fundador del Tenant, permisos irrevocables), `MEMBER` (permisos definidos por `role_id`), `CLEANER` (acceso especial solo a módulo de tareas, sin role_id necesario). El `OWNER` ignora el `role_id`. |
+  | `full_name` | String | Nombre para mostrar en el sistema. |
+  | `is_active` | Boolean | Permite desactivar un usuario sin borrarlo (mantiene historial de auditoría). |
 
   ---
 

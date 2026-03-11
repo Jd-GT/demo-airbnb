@@ -11,6 +11,10 @@ Basado en todos los dolores actuales (manejo en Excel, control manual de pagos, 
     *   **Como** Administrador del Tenant.
     *   **Quiero** poder registrar una nueva propiedad llenando su nombre, dirección, capacidad (adultos/niños), tarifa base y tarifa de limpieza.
     *   **Para** tener mi inventario digitalizado y listo para recibir reservas.
+*   **US-1.1.1: Agregar usuarios con x permisos a cada tenant**
+    *   **Como** Administrador del Tenant.
+    *   **Quiero** poder crear nuevos usuarios para mi inmobiliaria y asignarles permisos específicos (Ej: solo lectura, editor de reservas, administrador total).
+    *   **Para** que mi equipo pueda colaborar en la plataforma sin compartir contraseñas ni dar acceso irrestricto a todo el sistema.
 *   **US-1.2: Gestión de Comodidades (Amenities)**
     *   **Como** Staff/Administrador.
     *   **Quiero** asignar características (WiFi, Piscina, AC) a cada propiedad.

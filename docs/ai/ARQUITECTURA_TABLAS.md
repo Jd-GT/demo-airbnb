@@ -12,6 +12,9 @@ Este es el rasgo de negocio más importante.
 
 No es un Single-tenant (una base de datos y servidor por cada inmobiliaria).
 En nuestro caso, es un Multi-tenant con base de datos compartida y esquema compartido (todos los clientes usan la misma base de datos PostgreSQL, pero las filas están aisladas rígidamente por la columna tenant_id). Esto hace que el costo de infraestructura en AWS sea muy bajo al inicio y sea súper escalable.
+
+Este tiene la posibilidad de darle acceso a otros usuarios, y crear nuevos usuarios para que estos puedan entrar y hacer uso de la plantaforma para esa empresa, EJEMPLO: "Inmobiliaria Caribe" puede crear un usuario "Carolina" con permisos de solo lectura para que ella pueda entrar a la plataforma y ver las reservas, pero no pueda editarlas ni crear nuevas. O también puede crear un usuario "Jorge" con permisos de administrador para que él pueda entrar y hacer cualquier accion.
+
 3. A nivel de Backend (Django): Monolito Modular (Modular Monolith Architecture)
 Aunque Django en su conjunto es una sola aplicación (es decir, no estamos haciendo Microservicios en Kubernetes, lo cual sería excesivo y costoso para un equipo de 4 personas), la forma internamente estructurada que definimos en el plan de desarrollo (Apps separadas: core, inventory, crm, booking, finance) la convierte en un Monolito Modular.
 
@@ -28,6 +31,8 @@ Esto hace que el sistema sea resistente a cambios externos (si Airbnb rompe su A
 | Entidad                            | Descripción y Rol                                            | Requerimiento Cubierto                                       | Complejidad |
 | :--------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------- | :---------- |
 | **Tenant** (Inquilino SaaS)        | Representa a la empresa o host que usa la plataforma (e.g., "Inmobiliaria Caribe"). Aísla los datos y configuraciones. | **SaaS Multi-tenant**: Permitir múltiples clientes en una sola infraestructura con marca propia. | Alta        |
+| **TenantRole** (Rol por Tenant)    | Define roles con permisos granulares por módulo dentro de un Tenant. El Admin puede crear "Solo Lectura", "Editor Reservas", etc. Cada rol tiene un JSON de permisos. | **Gestión de Accesos (US-1.1.1)**: Que cada empresa decida qué puede hacer cada usuario de su equipo. | Media       |
+| **User** (Usuario)                 | Persona con credenciales de acceso al panel. Pertenece a un Tenant y tiene un TenantRole asignado que define sus capacidades. El `OWNER` (primer usuario) tiene acceso irrevocable. | **Colaboración Segura**: Que el equipo trabaje en la plataforma sin compartir contraseñas ni dar acceso irrestricto. | Media       |
 | **Property** (Propiedad)           | La unidad de negocio principal. Almacena características físicas, ubicación y reglas financieras (Centro de Costos). | **Gestión de Inventario**: Administrar múltiples alojamientos y su disponibilidad. | Media       |
 | **Amenity** (Comodidad)            | Características de la propiedad (WiFi, Aire Acondicionado, Piscina). | **Filtros y Detalle**: Informar al huésped qué incluye el alojamiento. | Baja        |
 | **Contact** (Partner)              | Entidad unificada para Huéspedes, Agentes (Comisionistas) y Plataformas (Airbnb). | **CRM y Comisiones**: Centralizar la base de datos de clientes e intermediarios. | Media       |
@@ -51,7 +56,27 @@ classDiagram
         +PK id
         +String name
         +String subdomain
-        +JSON config
+        +JSON branding_config
+        +JSON integration_config
+    }
+
+    class TenantRole {
+        +PK id
+        +FK tenant_id
+        +String name
+        +JSON permissions
+        +Bool is_default
+    }
+
+    class User {
+        +PK id
+        +FK tenant_id
+        +FK role_id
+        +String email
+        +String password_hash
+        +String full_name
+        +Enum system_role (OWNER, MEMBER, CLEANER)
+        +Bool is_active
     }
 
     %% Core Data
@@ -140,7 +165,12 @@ classDiagram
         +Bool is_done
     }
 
-    %% Relationships
+    %% Relationships - SaaS / IAM
+    Tenant "1" -- "*" TenantRole : defines
+    Tenant "1" -- "*" User : has_members
+    TenantRole "1" -- "*" User : assigns_permissions_to
+
+    %% Relationships - Business
     Tenant "1" -- "*" Property : manages
     Tenant "1" -- "*" Contact : owns
     Tenant "1" -- "*" Lead : tracks
