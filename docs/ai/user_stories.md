@@ -7,23 +7,28 @@ Basado en todos los dolores actuales (manejo en Excel, control manual de pagos, 
 ## ÉPICA 1: Gestión Centralizada del Inventario y CRM
 **Descripción:** Como Host, necesito dejar de usar Excel para gestionar mis propiedades, tarifas y la base de datos de mis clientes, para tener una única fuente de verdad accesible desde cualquier lugar.
 
-*   **US-1.1: Creación de Propiedades**
+*   [x] **US-1.1: Creación de Propiedades**
     *   **Como** Administrador del Tenant.
     *   **Quiero** poder registrar una nueva propiedad llenando su nombre, dirección, capacidad (adultos/niños), tarifa base y tarifa de limpieza.
     *   **Para** tener mi inventario digitalizado y listo para recibir reservas.
-*   **US-1.2: Gestión de Comodidades (Amenities)**
+*   [x] **US-1.1.1: Agregar usuarios con x permisos a cada tenant**
+    *   **Como** Administrador del Tenant.
+    *   **Quiero** poder crear nuevos usuarios para mi inmobiliaria y asignarles permisos específicos (Ej: solo lectura, editor de reservas, administrador total).
+    *   **Para** que mi equipo pueda colaborar en la plataforma sin compartir contraseñas ni dar acceso irrestricto a todo el sistema.
+*   [x] **US-1.2: Gestión de Comodidades (Amenities)**
     *   **Como** Staff/Administrador.
     *   **Quiero** asignar características (WiFi, Piscina, AC) a cada propiedad.
     *   **Para** que la información detallada esté disponible al enviar cotizaciones a los clientes.
-*   **US-1.3: Base de Datos Única de Contactos**
+*   [x] **US-1.3: Base de Datos Única de Contactos**
     *   **Como** Agente de Reservas.
     *   **Quiero** crear y buscar contactos (Huéspedes, Comisionistas, Plataformas) por nombre, teléfono o email en un solo lugar.
     *   **Para** identificar rápidamente a clientes recurrentes y no duplicar información.
-*   **US-1.4: Pipeline de Ventas (Leads / Cotizaciones)**
+*   [x] **US-1.4: Pipeline de Ventas (Leads / Cotizaciones)**
     *   **Como** Agente de Reservas.
     *   **Quiero** registrar una consulta (Lead) de WhatsApp, indicando el cliente, fechas deseadas y el valor esperado, agrupándolos por estado (Nuevo, Cotizado, Ganado).
     *   **Para** hacer seguimiento a las ventas que aún no son reservas confirmadas y no perder clientes potenciales.
 *   **US-1.5: Tarifas Dinámicas por Temporada**
+    *   Nota Sprint 1: Se implementó cotización base (`/quote`) con tarifa base + limpieza, pero no reglas dinámicas de temporada.
     *   **Como** Administrador.
     *   **Quiero** crear reglas de precios (Ej: "Temporada Alta: +20% del 15 de Dic al 15 de Ene") aplicables a propiedades específicas.
     *   **Para** no tener que calcular o recordar manualmente a cuánto debo vender un apartamento en diferentes fechas.
@@ -37,11 +42,11 @@ Basado en todos los dolores actuales (manejo en Excel, control manual de pagos, 
     *   **Como** Staff/Agente de Reservas.
     *   **Quiero** visualizar un calendario tipo Gantt que me muestre todas mis propiedades y las reservas bloqueando los días.
     *   **Para** saber de un vistazo qué está disponible para vender hoy o el próximo mes.
-*   **US-2.2: Creación de Reserva Manual (Directa)**
+*   [x] **US-2.2: Creación de Reserva Manual (Directa)**
     *   **Como** Agente de Reservas.
     *   **Quiero** crear una reserva seleccionando Propiedad, Cliente, Fechas de Check-in/out, la cual calcule automáticamente el costo total basado en las reglas de precio.
     *   **Para** formalizar una venta directa (WhatsApp/Referido) en el sistema.
-*   **US-2.3: Validación de Overbooking**
+*   [x] **US-2.3: Validación de Overbooking**
     *   **Como** Sistema (Backend).
     *   **Quiero** rechazar cualquier intento de crear o mover una reserva si las fechas interfieren con otra reserva confirmada en la misma propiedad.
     *   **Para** garantizar que nunca se le venda el mismo apartamento a dos personas en la misma fecha.
@@ -127,7 +132,7 @@ Basado en todos los dolores actuales (manejo en Excel, control manual de pagos, 
 ## ÉPICA 5: Requerimientos No Funcionales (NFRs)
 **Descripción:** Como Arquitecto/Propietario, necesito que el sistema sea seguro, rápido, escalable y mantenible para garantizar la continuidad del negocio y la protección de datos, sin importar cuántas propiedades o Tenants se agreguen.
 
-*   **NFR-5.1: Aislamiento de Datos (Multitenancy)**
+*   [x] **NFR-5.1: Aislamiento de Datos (Multitenancy)**
     *   **RESTricción:** Los datos de un Tenant A jamás deben ser accesibles ni visibles por un usuario del Tenant B, bajo ninguna circunstancia (incluso en caso de bugs).
     *   **Medición:** Validaciones a nivel de middleware y pruebas automatizadas de intento de inyección de `tenant_id` ajeno en todos los endpoints REST.
 *   **NFR-5.2: Rendimiento y Tiempos de Carga**

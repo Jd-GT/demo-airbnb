@@ -1,0 +1,155 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-cormorant);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
+  --color-emerald-deep: var(--emerald-deep);
+  --color-emerald-light: var(--emerald-light);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.75rem;
+  --gold: #C9A227;
+  --gold-light: #E8D48B;
+  --gold-dark: #A68520;
+  --emerald-deep: #0F2E2F;
+  --emerald-light: #1A4A4B;
+  --background: #0B1D1E;
+  --foreground: #F5F0E8;
+  --card: #0F2E2F;
+  --card-foreground: #F5F0E8;
+  --popover: #0F2E2F;
+  --popover-foreground: #F5F0E8;
+  --primary: #C9A227;
+  --primary-foreground: #0B1D1E;
+  --secondary: #1A3A3B;
+  --secondary-foreground: #F5F0E8;
+  --muted: #142828;
+  --muted-foreground: #8A9A9B;
+  --accent: #1A4A4B;
+  --accent-foreground: #F5F0E8;
+  --destructive: #E53E3E;
+  --border: rgba(201, 162, 39, 0.15);
+  --input: rgba(201, 162, 39, 0.1);
+  --ring: #C9A227;
+  --chart-1: #C9A227;
+  --chart-2: #2DD4BF;
+  --chart-3: #3B82F6;
+  --chart-4: #F97316;
+  --chart-5: #8B5CF6;
+  --sidebar: #091818;
+  --sidebar-foreground: #F5F0E8;
+  --sidebar-primary: #C9A227;
+  --sidebar-primary-foreground: #0B1D1E;
+  --sidebar-accent: #142828;
+  --sidebar-accent-foreground: #F5F0E8;
+  --sidebar-border: rgba(201, 162, 39, 0.1);
+  --sidebar-ring: #C9A227;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 162, 39, 0.4);
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #C9A227 0%, #E8D48B 50%, #C9A227 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass card effect */
+.glass-card {
+  background: rgba(15, 46, 47, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(201, 162, 39, 0.1);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-card-hover:hover {
+  border-color: rgba(201, 162, 39, 0.3);
+  box-shadow: 0 8px 32px rgba(201, 162, 39, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Gold shimmer animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.gold-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(201, 162, 39, 0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Hide Next.js error overlay portal */
+nextjs-portal {
+  display: none !important;
+}
