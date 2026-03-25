@@ -4,25 +4,25 @@ from enum import StrEnum
 
 
 class PermissionLevel(StrEnum):
-    NONE = "none"
-    READ = "read"
-    WRITE = "write"
-    ADMIN = "admin"
+    NONE = 'none'
+    READ = 'read'
+    WRITE = 'write'
+    ADMIN = 'admin'
 
 
 class ModuleKey(StrEnum):
-    CORE = "core"
-    USERS = "users"
-    INVENTORY = "inventory"
-    CRM = "crm"
-    BOOKING = "booking"
-    FINANCE = "finance"
+    CORE = 'core'
+    USERS = 'users'
+    INVENTORY = 'inventory'
+    CRM = 'crm'
+    BOOKING = 'booking'
+    FINANCE = 'finance'
 
 
 class SystemRole(StrEnum):
-    OWNER = "OWNER"
-    MEMBER = "MEMBER"
-    CLEANER = "CLEANER"
+    OWNER = 'OWNER'
+    MEMBER = 'MEMBER'
+    CLEANER = 'CLEANER'
 
 
 PERMISSION_HIERARCHY = {
@@ -39,7 +39,7 @@ def modules_default_permissions(level: PermissionLevel) -> dict[str, str]:
 
 def validate_permissions_map(permissions: dict) -> dict[str, str]:
     if not isinstance(permissions, dict):
-        raise ValueError("permissions must be a JSON object")
+        raise ValueError('permissions must be a JSON object')
 
     normalized: dict[str, str] = {}
     allowed_modules = {module.value for module in ModuleKey}
@@ -51,7 +51,7 @@ def validate_permissions_map(permissions: dict) -> dict[str, str]:
         if level not in allowed_levels:
             raise ValueError(
                 f"Unsupported level '{level}' for module '{module}'. "
-                f"Valid values: {sorted(allowed_levels)}"
+                f'Valid values: {sorted(allowed_levels)}'
             )
         normalized[module] = level
 

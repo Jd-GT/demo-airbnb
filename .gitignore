@@ -4,10 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-.venv/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -20,9 +16,18 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
 
 # Django
 *.log
@@ -30,9 +35,20 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 /media
-/static
+/staticfiles
+migrations/
+!migrations/__init__.py
 
-# IDE
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
 .vscode/
 .idea/
 *.swp
@@ -40,19 +56,19 @@ db.sqlite3-journal
 *~
 .DS_Store
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
 
-# Node/Frontend
+# Ruff
+.ruff_cache/
+.ruff.toml
+
+# Node (si hay)
 node_modules/
-npm-debug.log
-yarn-error.log
-.next/
-dist/
-build/
-
-# OS
-.DS_Store
-Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

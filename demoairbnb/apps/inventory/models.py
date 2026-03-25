@@ -14,9 +14,11 @@ class Amenity(TenantAwareModel):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["tenant", "name"], name="tenant_unique_amenity_name")
+            models.UniqueConstraint(
+                fields=['tenant', 'name'], name='tenant_unique_amenity_name'
+            )
         ]
-        ordering = ["name"]
+        ordering = ['name']
 
     def __str__(self) -> str:
         return self.name
@@ -30,21 +32,23 @@ class Property(TenantAwareModel):
     base_price = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        validators=[MinValueValidator(Decimal("0"))],
+        validators=[MinValueValidator(Decimal('0'))],
     )
     cleaning_fee = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=0,
-        validators=[MinValueValidator(Decimal("0"))],
+        validators=[MinValueValidator(Decimal('0'))],
     )
-    amenities = models.ManyToManyField(Amenity, related_name="properties", blank=True)
+    amenities = models.ManyToManyField(Amenity, related_name='properties', blank=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["tenant", "name"], name="tenant_unique_property_name"),
+            models.UniqueConstraint(
+                fields=['tenant', 'name'], name='tenant_unique_property_name'
+            ),
         ]
-        ordering = ["name"]
+        ordering = ['name']
 
     def __str__(self) -> str:
         return self.name

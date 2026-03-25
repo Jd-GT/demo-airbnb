@@ -7,7 +7,12 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from .constants import PermissionLevel, SystemRole, modules_default_permissions, validate_permissions_map
+from .constants import (
+    PermissionLevel,
+    SystemRole,
+    modules_default_permissions,
+    validate_permissions_map,
+)
 from .managers import TenantAwareManager, UserManager
 
 
@@ -28,7 +33,7 @@ class Tenant(TimeStampedUUIDModel):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ['name']
 
     def __str__(self) -> str:
         return self.name
@@ -50,13 +55,15 @@ class TenantRole(TenantAwareModel):
     is_default = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ["name"]
+        ordering = ['name']
         constraints = [
-            models.UniqueConstraint(fields=["tenant", "name"], name="tenant_role_unique_name"),
             models.UniqueConstraint(
-                fields=["tenant"],
+                fields=['tenant', 'name'], name='tenant_role_unique_name'
+            ),
+            models.UniqueConstraint(
+                fields=['tenant'],
                 condition=Q(is_default=True),
-                name="tenant_single_default_role",
+                name='tenant_single_default_role',
             ),
         ]
 
@@ -64,14 +71,14 @@ class TenantRole(TenantAwareModel):
         try:
             self.permissions = validate_permissions_map(self.permissions)
         except ValueError as exc:
-            raise ValidationError({"permissions": str(exc)}) from exc
+            raise ValidationError({'permissions': str(exc)}) from exc
 
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.tenant.name} - {self.name}"
+        return f'{self.tenant.name} - {self.name}'
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -81,14 +88,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     tenant = models.ForeignKey(
         Tenant,
         on_delete=models.CASCADE,
-        related_name="users",
+        related_name='users',
         null=True,
         blank=True,
     )
     role = models.ForeignKey(
         TenantRole,
         on_delete=models.SET_NULL,
-        related_name="users",
+        related_name='users',
         null=True,
         blank=True,
     )
@@ -104,28 +111,32 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = 'email'
     REQUIRED_FIELDS: list[str] = []
 
     class Meta:
-        ordering = ["email"]
+        ordering = ['email']
         constraints = [
             models.UniqueConstraint(
-                fields=["tenant"],
+                fields=['tenant'],
                 condition=Q(is_primary_owner=True),
-                name="single_primary_owner_per_tenant",
+                name='single_primary_owner_per_tenant',
             )
         ]
 
     def clean(self):
-        if self.system_role == SystemRole.OWNER.value and not self.tenant and not self.is_superuser:
-            raise ValidationError({"tenant": "Owner users must belong to a tenant."})
+        if (
+            self.system_role == SystemRole.OWNER.value
+            and not self.tenant
+            and not self.is_superuser
+        ):
+            raise ValidationError({'tenant': 'Owner users must belong to a tenant.'})
 
         if self.system_role == SystemRole.MEMBER.value:
             if self.tenant and not self.role:
-                raise ValidationError({"role": "Member users must have a tenant role."})
+                raise ValidationError({'role': 'Member users must have a tenant role.'})
             if self.tenant and self.role and self.role.tenant_id != self.tenant_id:
-                raise ValidationError({"role": "Role must belong to the same tenant."})
+                raise ValidationError({'role': 'Role must belong to the same tenant.'})
 
         if self.system_role != SystemRole.MEMBER.value:
             self.role = None

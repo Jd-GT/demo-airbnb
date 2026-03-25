@@ -13,7 +13,6 @@ from apps.inventory.models import Property
 
 from .models import Reservation, ReservationStatus
 
-
 ACTIVE_BLOCKING_STATUSES = (ReservationStatus.DRAFT, ReservationStatus.CONFIRMED)
 
 
@@ -29,11 +28,15 @@ class QuoteBreakdown:
 def _nights_between(check_in: date, check_out: date) -> int:
     nights = (check_out - check_in).days
     if nights <= 0:
-        raise serializers.ValidationError({"check_out": "check_out must be after check_in."})
+        raise serializers.ValidationError(
+            {'check_out': 'check_out must be after check_in.'}
+        )
     return nights
 
 
-def calculate_quote(*, property_obj: Property, check_in: date, check_out: date) -> QuoteBreakdown:
+def calculate_quote(
+    *, property_obj: Property, check_in: date, check_out: date
+) -> QuoteBreakdown:
     nights = _nights_between(check_in, check_out)
     nightly_rate = Decimal(str(property_obj.base_price))
     cleaning_fee = Decimal(str(property_obj.cleaning_fee))
@@ -48,7 +51,14 @@ def calculate_quote(*, property_obj: Property, check_in: date, check_out: date) 
     )
 
 
-def check_availability(*, tenant_id, property_id, check_in: date, check_out: date, exclude_reservation_id=None) -> tuple[bool, list[str]]:
+def check_availability(
+    *,
+    tenant_id,
+    property_id,
+    check_in: date,
+    check_out: date,
+    exclude_reservation_id=None,
+) -> tuple[bool, list[str]]:
     _nights_between(check_in, check_out)
 
     overlaps = Q(check_in__lt=check_out) & Q(check_out__gt=check_in)
@@ -60,7 +70,7 @@ def check_availability(*, tenant_id, property_id, check_in: date, check_out: dat
     if exclude_reservation_id:
         query = query.exclude(id=exclude_reservation_id)
 
-    conflicts = list(query.values_list("id", flat=True))
+    conflicts = list(query.values_list('id', flat=True))
     return len(conflicts) == 0, [str(conflict) for conflict in conflicts]
 
 
@@ -77,19 +87,29 @@ def create_reservation(
     created_by=None,
 ) -> Reservation:
     if property_obj.tenant_id != tenant_id:
-        raise serializers.ValidationError({"property_id": "Property does not belong to tenant."})
+        raise serializers.ValidationError(
+            {'property_id': 'Property does not belong to tenant.'}
+        )
 
     if guest.tenant_id != tenant_id:
-        raise serializers.ValidationError({"guest_id": "Guest does not belong to tenant."})
+        raise serializers.ValidationError(
+            {'guest_id': 'Guest does not belong to tenant.'}
+        )
 
     if guest.type != ContactType.GUEST:
-        raise serializers.ValidationError({"guest_id": "Contact must be of type GUEST."})
+        raise serializers.ValidationError(
+            {'guest_id': 'Contact must be of type GUEST.'}
+        )
 
     if agent:
         if agent.tenant_id != tenant_id:
-            raise serializers.ValidationError({"agent_id": "Agent does not belong to tenant."})
+            raise serializers.ValidationError(
+                {'agent_id': 'Agent does not belong to tenant.'}
+            )
         if agent.type != ContactType.AGENT:
-            raise serializers.ValidationError({"agent_id": "Agent contact must be type AGENT."})
+            raise serializers.ValidationError(
+                {'agent_id': 'Agent contact must be type AGENT.'}
+            )
 
     available, conflicts = check_availability(
         tenant_id=tenant_id,
@@ -100,12 +120,14 @@ def create_reservation(
     if not available:
         raise serializers.ValidationError(
             {
-                "detail": "Property is not available for the selected dates.",
-                "conflicting_reservation_ids": conflicts,
+                'detail': 'Property is not available for the selected dates.',
+                'conflicting_reservation_ids': conflicts,
             }
         )
 
-    quote = calculate_quote(property_obj=property_obj, check_in=check_in, check_out=check_out)
+    quote = calculate_quote(
+        property_obj=property_obj, check_in=check_in, check_out=check_out
+    )
 
     reservation = Reservation.objects.create(
         tenant_id=tenant_id,
