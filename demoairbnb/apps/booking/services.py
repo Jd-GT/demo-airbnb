@@ -35,13 +35,15 @@ def _nights_between(check_in: date, check_out: date) -> int:
 
 def calculate_quote(*, property_obj: Property, check_in: date, check_out: date) -> QuoteBreakdown:
     nights = _nights_between(check_in, check_out)
-    subtotal = nights * property_obj.base_price
-    total = subtotal + property_obj.cleaning_fee
+    nightly_rate = Decimal(str(property_obj.base_price))
+    cleaning_fee = Decimal(str(property_obj.cleaning_fee))
+    subtotal = nightly_rate * nights
+    total = subtotal + cleaning_fee
     return QuoteBreakdown(
         nights=nights,
-        nightly_rate=property_obj.base_price,
+        nightly_rate=nightly_rate,
         subtotal_amount=subtotal,
-        cleaning_fee=property_obj.cleaning_fee,
+        cleaning_fee=cleaning_fee,
         total_amount=total,
     )
 

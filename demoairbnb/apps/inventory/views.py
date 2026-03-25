@@ -6,6 +6,7 @@ from rest_framework import permissions, viewsets
 from apps.core.constants import ModuleKey
 from apps.core.permissions import TenantModulePermission
 from apps.core.models import Tenant
+from apps.finance.services import resolve_year_month
 
 from .models import Amenity, Property
 from .serializers import AmenitySerializer, PropertySerializer
@@ -40,6 +41,9 @@ class PropertyViewSet(TenantScopedViewSetMixin, viewsets.ModelViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context["tenant_id"] = self.kwargs["tenant_id"]
+        year, month = resolve_year_month(self.request.query_params)
+        context["year"] = year
+        context["month"] = month
         return context
 
     def perform_create(self, serializer):

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from apps.finance.services import get_property_month_metrics
+
 from .models import Amenity, Property
 
 
@@ -14,6 +16,8 @@ class AmenitySerializer(serializers.ModelSerializer):
 
 class PropertySerializer(serializers.ModelSerializer):
     amenities = AmenitySerializer(read_only=True, many=True)
+    monthly_revenue = serializers.SerializerMethodField()
+    occupancy_rate = serializers.SerializerMethodField()
     amenity_ids = serializers.ListField(
         child=serializers.UUIDField(),
         required=False,
@@ -32,11 +36,29 @@ class PropertySerializer(serializers.ModelSerializer):
             "base_price",
             "cleaning_fee",
             "amenities",
+            "monthly_revenue",
+            "occupancy_rate",
             "amenity_ids",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at", "amenities"]
+
+    def get_monthly_revenue(self, instance):
+        year = self.context.get("year")
+        month = self.context.get("month")
+        if year is None or month is None:
+            return "0.00"
+        metrics = get_property_month_metrics(instance, year=year, month=month)
+        return f"{metrics['monthly_revenue']:.2f}"
+
+    def get_occupancy_rate(self, instance):
+        year = self.context.get("year")
+        month = self.context.get("month")
+        if year is None or month is None:
+            return 0
+        metrics = get_property_month_metrics(instance, year=year, month=month)
+        return metrics["occupancy_rate"]
 
     def validate_amenity_ids(self, amenity_ids):
         tenant_id = self.context["tenant_id"]

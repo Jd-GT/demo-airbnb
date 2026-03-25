@@ -34,12 +34,17 @@ class QuoteSerializer(AvailabilitySerializer):
 
 
 class ReservationSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source="property.name", read_only=True)
+    guest_name = serializers.CharField(source="guest.name", read_only=True)
+
     class Meta:
         model = Reservation
         fields = [
             "id",
             "property",
+            "property_name",
             "guest",
+            "guest_name",
             "agent",
             "check_in",
             "check_out",

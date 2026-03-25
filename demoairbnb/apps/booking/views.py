@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import date
+
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
+from rest_framework.exceptions import ValidationError
 
 from apps.core.constants import ModuleKey, PermissionLevel
 from apps.core.permissions import TenantModulePermission
@@ -32,14 +35,31 @@ class ReservationViewSet(
     lookup_url_kwarg = "reservation_id"
 
     def get_queryset(self):
-        return Reservation.all_objects.filter(tenant_id=self.kwargs["tenant_id"]).select_related(
+        queryset = Reservation.all_objects.filter(tenant_id=self.kwargs["tenant_id"]).select_related(
             "property", "guest", "agent"
         )
+        from_raw = self.request.query_params.get("from")
+        to_raw = self.request.query_params.get("to")
+
+        from_date = self._parse_date(from_raw, "from") if from_raw else None
+        to_date = self._parse_date(to_raw, "to") if to_raw else None
+
+        if from_date:
+            queryset = queryset.filter(check_out__gt=from_date)
+        if to_date:
+            queryset = queryset.filter(check_in__lt=to_date)
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "create":
             return ReservationCreateSerializer
         return ReservationSerializer
+
+    def _parse_date(self, raw_value: str, field_name: str) -> date:
+        try:
+            return date.fromisoformat(raw_value)
+        except ValueError as exc:
+            raise ValidationError({field_name: "Expected ISO date YYYY-MM-DD."}) from exc
 
 
 class AvailabilityCheckView(GenericAPIView):

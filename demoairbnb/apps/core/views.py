@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, permissions, viewsets
+from rest_framework.generics import GenericAPIView
+from rest_framework.response import Response
 
-from .constants import ModuleKey
+from .constants import ModuleKey, PermissionLevel
 from .models import Tenant, TenantRole, User
 from .permissions import TenantModulePermission
 from .serializers import (
+    IntegrationItemSerializer,
     TenantCreateSerializer,
     TenantRoleSerializer,
     TenantSerializer,
@@ -14,6 +17,7 @@ from .serializers import (
     TenantUserSerializer,
     TenantUserUpdateSerializer,
 )
+from .services import normalize_integrations_config
 
 
 class TenantViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -94,3 +98,18 @@ class TenantUserViewSet(
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
+
+
+class TenantIntegrationsView(GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated, TenantModulePermission]
+    permission_module = ModuleKey.CORE.value
+    required_permission_level = PermissionLevel.READ
+    serializer_class = IntegrationItemSerializer
+
+    def get(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        serializer = self.get_serializer(
+            normalize_integrations_config(tenant.integration_config),
+            many=True,
+        )
+        return Response(serializer.data)

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import TenantRoleViewSet, TenantUserViewSet, TenantViewSet
+from .views import TenantIntegrationsView, TenantRoleViewSet, TenantUserViewSet, TenantViewSet
 
 
 tenant_list = TenantViewSet.as_view({"get": "list", "post": "create"})
@@ -19,4 +19,5 @@ urlpatterns = [
     path("tenants/<uuid:tenant_id>/roles/<uuid:role_id>/", role_detail, name="tenant-role-detail"),
     path("tenants/<uuid:tenant_id>/users/", user_list, name="tenant-user-list"),
     path("tenants/<uuid:tenant_id>/users/<uuid:user_id>/", user_detail, name="tenant-user-detail"),
+    path("tenants/<uuid:tenant_id>/integrations/", TenantIntegrationsView.as_view(), name="tenant-integrations"),
 ]

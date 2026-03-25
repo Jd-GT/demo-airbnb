@@ -148,3 +148,14 @@ class TenantUserUpdateSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         return TenantUserSerializer(instance).data
+
+
+class IntegrationItemSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    status = serializers.ChoiceField(choices=["connected", "pending", "error"])
+    icon = serializers.CharField()
+    color = serializers.CharField()
+    last_sync = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    details = serializers.CharField(required=False, allow_blank=True, allow_null=True)
