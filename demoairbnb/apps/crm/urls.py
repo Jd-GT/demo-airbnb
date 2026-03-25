@@ -2,7 +2,6 @@ from django.urls import path
 
 from .views import ContactViewSet, LeadViewSet
 
-
 contact_list = ContactViewSet.as_view({"get": "list", "post": "create"})
 contact_detail = ContactViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}

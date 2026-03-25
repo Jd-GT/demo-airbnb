@@ -4,8 +4,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import permissions, viewsets
 
 from apps.core.constants import ModuleKey
-from apps.core.permissions import TenantModulePermission
 from apps.core.models import Tenant
+from apps.core.permissions import TenantModulePermission
 
 from .models import Amenity, Property
 from .serializers import AmenitySerializer, PropertySerializer

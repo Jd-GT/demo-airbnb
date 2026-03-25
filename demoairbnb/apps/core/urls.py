@@ -2,7 +2,6 @@ from django.urls import path
 
 from .views import TenantRoleViewSet, TenantUserViewSet, TenantViewSet
 
-
 tenant_list = TenantViewSet.as_view({"get": "list", "post": "create"})
 tenant_detail = TenantViewSet.as_view({"get": "retrieve"})
 

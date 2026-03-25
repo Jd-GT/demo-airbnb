@@ -6,7 +6,7 @@ from apps.crm.models import Contact
 from apps.inventory.models import Property
 
 from .models import Reservation, ReservationStatus
-from .services import calculate_quote, check_availability, create_reservation
+from .services import calculate_quote, create_reservation
 
 
 class AvailabilitySerializer(serializers.Serializer):

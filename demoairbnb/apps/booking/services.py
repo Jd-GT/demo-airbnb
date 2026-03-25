@@ -13,7 +13,6 @@ from apps.inventory.models import Property
 
 from .models import Reservation, ReservationStatus
 
-
 ACTIVE_BLOCKING_STATUSES = (ReservationStatus.DRAFT, ReservationStatus.CONFIRMED)
 
 

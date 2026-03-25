@@ -2,7 +2,6 @@ from django.urls import path
 
 from .views import AvailabilityCheckView, QuoteView, ReservationViewSet
 
-
 reservation_list = ReservationViewSet.as_view({"get": "list", "post": "create"})
 reservation_detail = ReservationViewSet.as_view({"get": "retrieve"})
 

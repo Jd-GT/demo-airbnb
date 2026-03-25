@@ -2,7 +2,6 @@ from django.urls import path
 
 from .views import AmenityViewSet, PropertyViewSet
 
-
 amenity_list = AmenityViewSet.as_view({"get": "list", "post": "create"})
 amenity_detail = AmenityViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}

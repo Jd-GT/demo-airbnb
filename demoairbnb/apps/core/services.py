@@ -4,7 +4,13 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from .constants import SystemRole
-from .models import Tenant, TenantRole, User, default_admin_permissions, default_read_permissions
+from .models import (
+    Tenant,
+    TenantRole,
+    User,
+    default_admin_permissions,
+    default_read_permissions,
+)
 
 
 @transaction.atomic

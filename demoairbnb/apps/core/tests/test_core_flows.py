@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase
 
 from apps.core.constants import SystemRole
 from apps.core.models import TenantRole, User
-from apps.core.services import create_tenant_with_owner, create_tenant_user
+from apps.core.services import create_tenant_user, create_tenant_with_owner
 
 
 class TenantBootstrapTests(APITestCase):

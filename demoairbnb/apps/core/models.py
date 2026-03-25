@@ -7,7 +7,12 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from .constants import PermissionLevel, SystemRole, modules_default_permissions, validate_permissions_map
+from .constants import (
+    PermissionLevel,
+    SystemRole,
+    modules_default_permissions,
+    validate_permissions_map,
+)
 from .managers import TenantAwareManager, UserManager
 
 
