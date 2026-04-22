@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.shortcuts import get_object_or_404
-from rest_framework import mixins, permissions, viewsets
+from rest_framework import mixins, permissions, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from apps.core.constants import ModuleKey, PermissionLevel
 from apps.core.models import Tenant
 from apps.core.permissions import TenantModulePermission
+from apps.core.pdf_service import generate_property_report_pdf
 from apps.inventory.models import Property
 
 from .models import PropertyProfitabilityReport, Voucher
@@ -102,6 +103,44 @@ class PropertyProfitabilityReportViewSet(
 
         serializer = PropertyProfitabilityReportSerializer(report)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="download-pdf")
+    def download_pdf(self, request, tenant_id, report_id):
+        """Download property profitability report as PDF."""
+        report = self.get_object()
+        
+        try:
+            from datetime import datetime
+            now = datetime.now()
+            month_names = [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ]
+            month_str = month_names[now.month - 1]
+            period = f"{month_str} {now.year}"
+            
+            # Generate PDF report directly
+            pdf_bytes = generate_property_report_pdf(
+                property_name=report.property.name,
+                period=period,
+                total_revenue=report.total_revenue,
+                occupancy_rate=report.occupancy_rate,
+                nights_booked=report.nights_booked,
+                num_reservations=report.num_reservations,
+                avg_daily_rate=report.avg_daily_rate,
+                operating_expenses=getattr(report, 'expenses', None),
+                net_profit=report.net_profit,
+            )
+            
+            # Return PDF response
+            response = Response(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="report-{report.property.name.replace(" ", "_")}.pdf"'
+            return response
+        except Exception as e:
+            return Response(
+                {"error": f"Error generating PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class VoucherViewSet(
