@@ -14,9 +14,6 @@ function WireframeBuilding() {
     }
   });
 
-  const goldMaterial = new THREE.LineBasicMaterial({ color: "#C9A227", transparent: true, opacity: 0.6 });
-  const goldMaterialBright = new THREE.LineBasicMaterial({ color: "#E8D48B", transparent: true, opacity: 0.4 });
-
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
       <group ref={groupRef} scale={0.8}>
