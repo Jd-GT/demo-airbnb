@@ -171,6 +171,169 @@ class TenantUserUpdateSerializer(serializers.Serializer):
         return TenantUserSerializer(instance).data
 
 
+class UserRegistrationSerializer(serializers.Serializer):
+    REGISTRATION_TYPE_CHOICES = [
+        ('new_tenant', 'Crear nuevo tenant/host'),
+        ('join_tenant', 'Unirse a tenant existente'),
+    ]
+    
+    registration_type = serializers.ChoiceField(choices=REGISTRATION_TYPE_CHOICES)
+    
+    # Common fields
+    email = serializers.EmailField()
+    full_name = serializers.CharField(max_length=160)
+    password = serializers.CharField(min_length=8, write_only=True)
+    
+    # For new tenant
+    tenant_name = serializers.CharField(max_length=160, required=False)
+    tenant_subdomain = serializers.SlugField(max_length=80, required=False)
+    
+    # For join tenant
+    tenant_subdomain_join = serializers.SlugField(max_length=80, required=False)
+    invitation_code = serializers.CharField(max_length=32, required=False)
+
+    def validate(self, attrs):
+        from django.contrib.auth import get_user_model
+
+        user_model = get_user_model()
+        reg_type = attrs.get('registration_type')
+
+        tenant_subdomain = attrs.get('tenant_subdomain')
+        if isinstance(tenant_subdomain, str):
+            attrs['tenant_subdomain'] = tenant_subdomain.strip().lower()
+
+        if reg_type == 'new_tenant':
+            if not attrs.get('tenant_name') or not attrs.get('tenant_subdomain'):
+                raise serializers.ValidationError({
+                    'tenant_name': 'Required for new tenant registration.',
+                    'tenant_subdomain': 'Required for new tenant registration.'
+                })
+
+            # Check if subdomain already exists
+            if Tenant.objects.filter(subdomain=attrs.get('tenant_subdomain')).exists():
+                raise serializers.ValidationError({
+                    'tenant_subdomain': 'Este subdominio ya está en uso. Elige otro.'
+                })
+
+            # Check if email already exists
+            if user_model.objects.filter(email=attrs.get('email')).exists():
+                raise serializers.ValidationError({
+                    'email': 'Este email ya está registrado.'
+                })
+
+        elif reg_type == 'join_tenant':
+            join_subdomain = (
+                attrs.get('tenant_subdomain_join') or attrs.get('tenant_subdomain')
+            )
+            if isinstance(join_subdomain, str):
+                join_subdomain = join_subdomain.strip().lower()
+
+            invite_code = attrs.get('invitation_code')
+            if isinstance(invite_code, str):
+                invite_code = invite_code.strip().upper()
+
+            if not join_subdomain or not invite_code:
+                raise serializers.ValidationError({
+                    'tenant_subdomain_join': 'Required to join existing tenant.',
+                    'invitation_code': 'Invitation code required.'
+                })
+
+            attrs['tenant_subdomain_join'] = join_subdomain
+            attrs['invitation_code'] = invite_code
+
+            # Check if subdomain exists
+            if not Tenant.objects.filter(subdomain=join_subdomain).exists():
+                raise serializers.ValidationError({
+                    'tenant_subdomain_join': 'No se encontró una empresa con ese nombre.'
+                })
+
+            # Check if email already exists
+            if user_model.objects.filter(email=attrs.get('email')).exists():
+                raise serializers.ValidationError({
+                    'email': 'Este email ya está registrado.'
+                })
+
+        return attrs
+
+    def create(self, validated_data):
+        reg_type = validated_data.get('registration_type')
+        email = validated_data.get('email')
+        full_name = validated_data.get('full_name')
+        password = validated_data.get('password')
+
+        if reg_type == 'new_tenant':
+            tenant, owner = create_tenant_with_owner(
+                name=validated_data.get('tenant_name'),
+                subdomain=validated_data.get('tenant_subdomain'),
+                owner_email=email,
+                owner_full_name=full_name,
+                owner_password=password
+            )
+            return {
+                'tenant': TenantSerializer(tenant).data,
+                'user': TenantUserSerializer(owner).data,
+                'message': 'Tenant created successfully'
+            }
+
+        elif reg_type == 'join_tenant':
+            tenant = Tenant.objects.filter(
+                subdomain=validated_data.get('tenant_subdomain_join')
+            ).first()
+
+            if not tenant:
+                raise serializers.ValidationError({
+                    'tenant_subdomain_join': 'Tenant not found.'
+                })
+
+            # Validate invitation code
+            configured_invite_code = ''
+            if tenant.branding_config:
+                configured_invite_code = str(
+                    tenant.branding_config.get('invitation_code', '')
+                ).strip().upper()
+
+            provided_invite_code = str(
+                validated_data.get('invitation_code', '')
+            ).strip().upper()
+
+            if not configured_invite_code or configured_invite_code != provided_invite_code:
+                raise serializers.ValidationError({
+                    'invitation_code': 'Invalid invitation code.'
+                })
+
+            # Get default role or create one
+            default_role = TenantRole.all_objects.filter(
+                tenant=tenant,
+                is_default=True
+            ).first()
+
+            if not default_role:
+                from .constants import modules_default_permissions, PermissionLevel
+                default_role = TenantRole.all_objects.create(
+                    tenant=tenant,
+                    name='Miembro',
+                    permissions=modules_default_permissions(PermissionLevel.READ),
+                    is_default=True
+                )
+
+            user = create_tenant_user(
+                tenant=tenant,
+                email=email,
+                full_name=full_name,
+                password=password,
+                role=default_role,
+                system_role='MEMBER'
+            )
+            
+            return {
+                'tenant': TenantSerializer(tenant).data,
+                'user': TenantUserSerializer(user).data,
+                'message': 'Joined tenant successfully'
+            }
+
+        raise serializers.ValidationError({'registration_type': 'Invalid registration type.'})
+
+
 class IntegrationItemSerializer(serializers.Serializer):
     id = serializers.CharField()
     name = serializers.CharField()

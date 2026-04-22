@@ -11,8 +11,11 @@ import {
   Link2,
   ChevronLeft,
   ChevronRight,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
+import { useLogout } from "@/components/auth-provider";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -20,6 +23,7 @@ const navItems = [
   { href: "/finanzas", label: "Finanzas", icon: DollarSign },
   { href: "/propiedades", label: "Propiedades", icon: Building2 },
   { href: "/integraciones", label: "Integraciones", icon: Link2 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

@@ -16,14 +16,40 @@ from .serializers import (
     TenantUserCreateSerializer,
     TenantUserSerializer,
     TenantUserUpdateSerializer,
+    UserRegistrationSerializer,
 )
 from .services import normalize_integrations_config
+from rest_framework_simplejwt.tokens import RefreshToken
+
+
+class UserRegistrationView(GenericAPIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = UserRegistrationSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        result = serializer.save()
+        
+        # Generate tokens for the created user
+        user = User.objects.get(email=result['user']['email'])
+        refresh = RefreshToken.for_user(user)
+        
+        return Response({
+            'tenant': result['tenant'],
+            'user': result['user'],
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'message': result['message']
+        })
 
 
 class TenantViewSet(
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
     queryset = Tenant.objects.all()
@@ -45,6 +71,8 @@ class TenantViewSet(
     def get_serializer_class(self):
         if self.action == 'create':
             return TenantCreateSerializer
+        if self.action in {'update', 'partial_update'}:
+            return TenantSerializer
         return TenantSerializer
 
 
