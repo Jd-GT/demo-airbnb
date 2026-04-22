@@ -1,6 +1,12 @@
 from django.urls import path
 
-from .views import TenantIntegrationsView, TenantRoleViewSet, TenantUserViewSet, TenantViewSet
+from .views import (
+    TenantIntegrationsView,
+    TenantRoleViewSet,
+    TenantUserViewSet,
+    TenantViewSet,
+    EmailTemplateViewSet,
+)
 
 
 tenant_list = TenantViewSet.as_view({"get": "list", "post": "create"})
@@ -12,6 +18,11 @@ role_detail = TenantRoleViewSet.as_view({"get": "retrieve", "put": "update", "de
 user_list = TenantUserViewSet.as_view({"get": "list", "post": "create"})
 user_detail = TenantUserViewSet.as_view({"get": "retrieve", "patch": "partial_update"})
 
+template_list = EmailTemplateViewSet.as_view({"get": "list", "post": "create"})
+template_detail = EmailTemplateViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+
 urlpatterns = [
     path("tenants/", tenant_list, name="tenant-list"),
     path("tenants/<uuid:pk>/", tenant_detail, name="tenant-detail"),
@@ -19,5 +30,15 @@ urlpatterns = [
     path("tenants/<uuid:tenant_id>/roles/<uuid:role_id>/", role_detail, name="tenant-role-detail"),
     path("tenants/<uuid:tenant_id>/users/", user_list, name="tenant-user-list"),
     path("tenants/<uuid:tenant_id>/users/<uuid:user_id>/", user_detail, name="tenant-user-detail"),
+    path(
+        "tenants/<uuid:tenant_id>/email-templates/",
+        template_list,
+        name="tenant-email-template-list",
+    ),
+    path(
+        "tenants/<uuid:tenant_id>/email-templates/<uuid:template_id>/",
+        template_detail,
+        name="tenant-email-template-detail",
+    ),
     path("tenants/<uuid:tenant_id>/integrations/", TenantIntegrationsView.as_view(), name="tenant-integrations"),
 ]

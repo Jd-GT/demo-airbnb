@@ -3,8 +3,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Tenant, TenantRole, User
-
+from .models import Tenant, TenantRole, User, EmailTemplate
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
@@ -55,3 +54,20 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+
+@admin.register(EmailTemplate)
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "template_type", "tenant", "is_active", "is_default", "created_at")
+    list_filter = ("template_type", "is_active", "is_default", "tenant")
+    search_fields = ("name", "subject", "body")
+    fieldsets = (
+        (None, {"fields": ("tenant", "name", "template_type")}),
+        ("Content", {"fields": ("subject", "body")}),
+        (
+            "Settings",
+            {"fields": ("is_active", "is_default", "variables_used")},
+        ),
+        ("Metadata", {"fields": ("created_at", "updated_at")}),
+    )
+    readonly_fields = ("created_at", "updated_at")
