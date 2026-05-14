@@ -6,9 +6,11 @@ from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
 from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import action
 
 from apps.core.constants import ModuleKey, PermissionLevel
 from apps.core.permissions import TenantModulePermission
+from apps.core.pdf_service import generate_reservation_voucher_pdf
 
 from .models import Reservation
 from .serializers import AvailabilitySerializer, QuoteSerializer, ReservationCreateSerializer, ReservationSerializer
@@ -60,6 +62,37 @@ class ReservationViewSet(
             return date.fromisoformat(raw_value)
         except ValueError as exc:
             raise ValidationError({field_name: "Expected ISO date YYYY-MM-DD."}) from exc
+    
+    @action(detail=True, methods=["get"], url_path="voucher-pdf")
+    def voucher_pdf(self, request, tenant_id, reservation_id):
+        """Download reservation voucher as PDF."""
+        reservation = self.get_object()
+        
+        try:
+            # Generate PDF for voucher
+            pdf_bytes = generate_reservation_voucher_pdf(
+                guest_name=reservation.guest.name,
+                property_name=reservation.property.name,
+                check_in=reservation.check_in.isoformat() if hasattr(reservation.check_in, 'isoformat') else str(reservation.check_in),
+                check_out=reservation.check_out.isoformat() if hasattr(reservation.check_out, 'isoformat') else str(reservation.check_out),
+                nights=reservation.nights,
+                subtotal=reservation.subtotal_amount,
+                cleaning_fee=reservation.cleaning_fee,
+                total_amount=reservation.total_amount,
+                confirmation_code=f"RES-{str(reservation.id)[:8].upper()}",
+                amenities=getattr(reservation.property, 'amenities_list', []),
+                cancellation_policy=getattr(reservation, 'cancellation_policy', 'Flexible'),
+            )
+            
+            # Return PDF response
+            response = Response(pdf_bytes, content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="voucher-{reservation_id}.pdf"'
+            return response
+        except Exception as e:
+            return Response(
+                {"error": f"Error generating PDF: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class AvailabilityCheckView(GenericAPIView):
