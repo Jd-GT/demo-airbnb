@@ -5,26 +5,32 @@ from rest_framework.test import APITestCase
 
 from apps.core.constants import SystemRole
 from apps.core.models import TenantRole, User
-from apps.core.services import create_tenant_user, create_tenant_with_owner
+from apps.core.services import (
+    create_tenant_user,
+    create_tenant_with_owner,
+    issue_create_tenant_code,
+)
 
 
 class TenantBootstrapTests(APITestCase):
-    def test_creating_tenant_seeds_roles_and_primary_owner(self):
+    def test_signup_with_create_tenant_code_seeds_roles_and_owner(self):
+        invite = issue_create_tenant_code(notes='test')
+
         payload = {
-            'name': 'Tenant A',
-            'subdomain': 'tenant-a',
-            'owner_email': 'owner@a.com',
-            'owner_full_name': 'Owner A',
-            'owner_password': 'ownerpass123',
+            'invitation_code': invite.code,
+            'tenant_name': 'Tenant A',
+            'tenant_subdomain': 'tenant-a',
+            'email': 'owner@a.com',
+            'full_name': 'Owner A',
+            'password': 'ownerpass123',
         }
 
-        response = self.client.post('/api/tenants/', payload, format='json')
+        response = self.client.post('/api/auth/register/', payload, format='json')
 
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        tenant_id = response.data['id']
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        tenant_id = response.data['tenant']['id']
 
         roles = TenantRole.all_objects.filter(tenant_id=tenant_id)
-        self.assertEqual(roles.count(), 2)
         self.assertSetEqual(
             set(roles.values_list('name', flat=True)), {'Admin Total', 'Solo Lectura'}
         )
@@ -33,6 +39,34 @@ class TenantBootstrapTests(APITestCase):
         self.assertEqual(str(owner.tenant_id), tenant_id)
         self.assertEqual(owner.system_role, SystemRole.OWNER.value)
         self.assertTrue(owner.is_primary_owner)
+
+        invite.refresh_from_db()
+        self.assertEqual(invite.uses_count, 1)
+        self.assertFalse(invite.is_active, 'Single-use code should self-deactivate')
+
+    def test_signup_without_invitation_code_is_rejected(self):
+        payload = {
+            'tenant_name': 'Tenant Sin Código',
+            'tenant_subdomain': 'tenant-no-code',
+            'email': 'noone@nocode.com',
+            'full_name': 'NoCode',
+            'password': 'pass123456',
+        }
+        response = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('invitation_code', response.data)
+
+    def test_public_tenant_create_endpoint_is_disabled(self):
+        # POST /api/tenants/ used to allow public tenant creation. Now removed.
+        response = self.client.post(
+            '/api/tenants/',
+            {'name': 'Bypass', 'subdomain': 'bypass'},
+            format='json',
+        )
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_405_METHOD_NOT_ALLOWED),
+        )
 
 
 class OwnerProtectionTests(APITestCase):

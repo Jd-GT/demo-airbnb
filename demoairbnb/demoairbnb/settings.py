@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Disable django-ratelimit while running the test suite. The decorators
+# are still active in dev/prod (toggle with DJANGO_RATELIMIT_ENABLE=0).
+IS_RUNNING_TESTS = (
+    'test' in sys.argv
+    or 'pytest' in sys.argv[0]
+    or os.getenv('DJANGO_RATELIMIT_ENABLE') == '0'
+)
+RATELIMIT_ENABLE = not IS_RUNNING_TESTS
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'change-me-in-production')
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
@@ -25,11 +35,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
+    'simple_history',
     'apps.core',
     'apps.inventory',
     'apps.crm',
     'apps.booking',
     'apps.finance',
+    'apps.ops',
 ]
 
 MIDDLEWARE = [
@@ -42,6 +54,7 @@ MIDDLEWARE = [
     'apps.core.middleware.TenantResolutionMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'demoairbnb.urls'

@@ -41,6 +41,7 @@ class Property(TenantAwareModel):
         validators=[MinValueValidator(Decimal('0'))],
     )
     amenities = models.ManyToManyField(Amenity, related_name='properties', blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
@@ -52,3 +53,10 @@ class Property(TenantAwareModel):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new:
+            from apps.finance.services import ensure_cost_center_for_property
+            ensure_cost_center_for_property(self)

@@ -175,10 +175,14 @@ export default function FinanzasPage() {
               Analisis financiero de tu cartera
             </p>
           </div>
-          <button className="flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold/20">
+          <a
+            href="/contabilidad"
+            className="flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
+            title="Para descargar reportes Excel (P&L, Ocupación, Pagos) ve a Contabilidad"
+          >
             <Download className="h-4 w-4" />
-            Exportar Reporte
-          </button>
+            Reportes Excel →
+          </a>
         </motion.div>
 
         {loading && !data ? (

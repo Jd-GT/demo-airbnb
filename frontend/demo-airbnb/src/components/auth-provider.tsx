@@ -1,19 +1,31 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isAuthenticated, logout as apiLogout } from "@/lib/api";
+import {
+  CurrentUserResponse,
+  fetchCurrentUser,
+  hasPermission,
+  isAuthenticated,
+  logout as apiLogout,
+  ModuleKey,
+  PermissionLevel,
+} from "@/lib/api";
 
 interface AuthContextType {
   isAuth: boolean | null;
   loading: boolean;
-  checkAuth: () => void;
+  me: CurrentUserResponse | null;
+  refreshMe: () => Promise<void>;
+  can: (module: ModuleKey, required?: PermissionLevel) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuth: null,
   loading: true,
-  checkAuth: () => {},
+  me: null,
+  refreshMe: async () => {},
+  can: () => false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -21,28 +33,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
+  const [me, setMe] = useState<CurrentUserResponse | null>(null);
 
-  const checkAuth = () => {
-    const auth = isAuthenticated();
-    setIsAuth(auth);
-    setLoading(false);
-
-    const isLoginPage = pathname === "/login";
-    const isPublicPage = pathname.startsWith("/login");
-
-    if (!auth && !isPublicPage) {
-      router.push("/login");
-    } else if (auth && isLoginPage) {
-      router.push("/");
+  const refreshMe = useCallback(async () => {
+    try {
+      const data = await fetchCurrentUser();
+      setMe(data);
+    } catch {
+      setMe(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    checkAuth();
-  }, [pathname]);
+    let cancelled = false;
+    async function bootstrap() {
+      const auth = isAuthenticated();
+      if (cancelled) return;
+      setIsAuth(auth);
+      if (auth) {
+        await refreshMe();
+      } else {
+        setMe(null);
+      }
+      setLoading(false);
+
+      const isLoginPage = pathname === "/login";
+      if (!auth && !pathname.startsWith("/login")) {
+        router.push("/login");
+      } else if (auth && isLoginPage) {
+        router.push("/");
+      }
+    }
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, refreshMe, router]);
+
+  const can = useCallback(
+    (module: ModuleKey, required: PermissionLevel = "read") =>
+      hasPermission(me?.permissions, module, required),
+    [me]
+  );
 
   return (
-    <AuthContext.Provider value={{ isAuth, loading, checkAuth }}>
+    <AuthContext.Provider value={{ isAuth, loading, me, refreshMe, can }}>
       {children}
     </AuthContext.Provider>
   );

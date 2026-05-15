@@ -1,20 +1,28 @@
 "use client";
 
 import AppShell from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
 import { ErrorCard, LoadingCard } from "@/components/page-feedback";
 import { useAsyncData } from "@/hooks/use-async-data";
-import { fetchProperties, toNumber } from "@/lib/api";
+import {
+  createProperty,
+  deleteProperty,
+  fetchProperties,
+  toNumber,
+} from "@/lib/api";
 import { motion } from "framer-motion";
 import {
   Bath,
   BedDouble,
   DollarSign,
-  Eye,
+  Loader2,
   MapPin,
   MoreHorizontal,
-  Pencil,
+  Plus,
   Search,
+  Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -87,17 +95,21 @@ function formatCOP(value: number) {
 }
 
 export default function PropiedadesPage() {
+  const { can } = useAuth();
+  const canWrite = can("inventory", "write");
+
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">(
     "all",
   );
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
 
-  const { data, error, loading } = useAsyncData(async () => {
+  const { data, error, loading, reload } = useAsyncData(async () => {
     const properties = await fetchProperties({
       year: currentYear,
       month: currentMonth,
@@ -163,10 +175,26 @@ export default function PropiedadesPage() {
               Gestion de tu cartera de alojamientos
             </p>
           </div>
-          <button className="rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-gold-dark">
-            + Nueva Propiedad
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-gold-dark"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva Propiedad
+            </button>
+          )}
         </div>
+
+        {showModal && (
+          <NewPropertyModal
+            onClose={() => setShowModal(false)}
+            onCreated={() => {
+              setShowModal(false);
+              reload();
+            }}
+          />
+        )}
 
         {loading && !data ? (
           <LoadingCard
@@ -363,18 +391,45 @@ export default function PropiedadesPage() {
                       exit={{ height: 0, opacity: 0 }}
                       className="flex gap-2 px-6 pb-4"
                     >
-                      <button className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
-                        <Eye className="h-3 w-3" />
+                      <a
+                        href="/calendario"
+                        className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
                         Ver Calendario
-                      </button>
-                      <button className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
+                      </a>
+                      <a
+                        href="/contabilidad"
+                        className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
                         <DollarSign className="h-3 w-3" />
-                        Ver Finanzas
-                      </button>
-                      <button className="flex items-center gap-1.5 rounded-md bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/20">
-                        <Pencil className="h-3 w-3" />
-                        Editar
-                      </button>
+                        Ver P&amp;L
+                      </a>
+                      {canWrite && (
+                        <button
+                          onClick={async () => {
+                            if (
+                              !confirm(
+                                `¿Eliminar "${property.name}"? Esta acción no se puede deshacer.`,
+                              )
+                            )
+                              return;
+                            try {
+                              await deleteProperty(property.id);
+                              reload();
+                            } catch (err) {
+                              alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Error eliminando",
+                              );
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Eliminar
+                        </button>
+                      )}
                     </motion.div>
                   ) : null}
                 </motion.div>
@@ -386,3 +441,173 @@ export default function PropiedadesPage() {
     </AppShell>
   );
 }
+
+function NewPropertyModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [adults, setAdults] = useState(2);
+  const [kids, setKids] = useState(0);
+  const [basePrice, setBasePrice] = useState("");
+  const [cleaningFee, setCleaningFee] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name || !address || !basePrice) {
+      setError("Nombre, dirección y precio base son obligatorios.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await createProperty({
+        name: name.trim(),
+        address: address.trim(),
+        capacity_adults: adults,
+        capacity_kids: kids,
+        base_price: basePrice,
+        cleaning_fee: cleaningFee || "0",
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error creando propiedad");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-lg rounded-xl p-6"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-serif text-xl font-semibold">Nueva propiedad</h2>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="mb-4 text-xs text-muted-foreground">
+          Al guardar se crea automáticamente un{" "}
+          <strong>centro de costo</strong> para esta propiedad. Lo podrás usar
+          en /contabilidad.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nombre (ej: Apto 301 - Vista Mar)"
+            className={inputClass}
+            required
+          />
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Dirección completa"
+            rows={2}
+            className={inputClass}
+            required
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Adultos máx.
+              <input
+                type="number"
+                min={1}
+                value={adults}
+                onChange={(e) => setAdults(parseInt(e.target.value, 10) || 1)}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Niños máx.
+              <input
+                type="number"
+                min={0}
+                value={kids}
+                onChange={(e) => setKids(parseInt(e.target.value, 10) || 0)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Precio base por noche
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={basePrice}
+                onChange={(e) => setBasePrice(e.target.value)}
+                placeholder="120.00"
+                className={inputClass}
+                required
+              />
+            </label>
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Tarifa de limpieza
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={cleaningFee}
+                onChange={(e) => setCleaningFee(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          {error && (
+            <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-400">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-foreground hover:bg-zinc-800"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-gold/90 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Crear
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-foreground focus:border-gold/50 focus:outline-none";

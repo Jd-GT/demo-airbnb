@@ -35,6 +35,15 @@ class Contact(TenantAwareModel):
         validators=[MinValueValidator(Decimal('0'))],
         help_text='Only applies for AGENT type contacts.',
     )
+    # Mini-CRM fields (Sprint 3.5)
+    tax_id = models.CharField(
+        max_length=40,
+        blank=True,
+        help_text='Cédula / RUT / NIT / VAT — identificación fiscal.',
+    )
+    address = models.CharField(max_length=240, blank=True)
+    nationality = models.CharField(max_length=80, blank=True)
+    notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ['name']
@@ -43,6 +52,11 @@ class Contact(TenantAwareModel):
                 fields=['tenant', 'email'],
                 name='tenant_unique_contact_email',
                 condition=~models.Q(email=''),
+            ),
+            models.UniqueConstraint(
+                fields=['tenant', 'tax_id'],
+                name='tenant_unique_contact_tax_id',
+                condition=~models.Q(tax_id=''),
             ),
         ]
 

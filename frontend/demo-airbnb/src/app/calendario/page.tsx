@@ -1,6 +1,8 @@
 "use client";
 
 import AppShell from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
+import { NewReservationModal } from "@/components/new-reservation-modal";
 import { ErrorCard, LoadingCard } from "@/components/page-feedback";
 import { useAsyncData } from "@/hooks/use-async-data";
 import {
@@ -15,6 +17,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Plus,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -83,17 +86,20 @@ function dayStart(year: number, monthIndex: number, day: number) {
 }
 
 export default function CalendarioPage() {
+  const { can } = useAuth();
+  const canWrite = can("booking", "write");
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [showNewModal, setShowNewModal] = useState<string | null>(null); // ISO date or "open"
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
   const monthRange = getMonthDateRange(currentYear, currentMonth + 1);
 
-  const { data, error, loading } = useAsyncData(async () => {
+  const { data, error, loading, reload } = useAsyncData(async () => {
     const reservations = await fetchReservations({
       from: monthRange.startIso,
       to: monthRange.endIso,
@@ -223,8 +229,28 @@ export default function CalendarioPage() {
                 Semanal
               </button>
             </div>
+            {canWrite && (
+              <button
+                onClick={() => setShowNewModal("open")}
+                className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-gold/90"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva reserva
+              </button>
+            )}
           </div>
         </div>
+
+        {showNewModal && (
+          <NewReservationModal
+            initialCheckIn={showNewModal !== "open" ? showNewModal : undefined}
+            onClose={() => setShowNewModal(null)}
+            onCreated={() => {
+              setShowNewModal(null);
+              reload();
+            }}
+          />
+        )}
 
         {loading && !data ? (
           <LoadingCard

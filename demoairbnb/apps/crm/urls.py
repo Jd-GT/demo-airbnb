@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ContactViewSet, LeadViewSet
+from .views import ContactStatsView, ContactViewSet, LeadViewSet
 
 contact_list = ContactViewSet.as_view({'get': 'list', 'post': 'create'})
 contact_detail = ContactViewSet.as_view(
@@ -18,6 +18,11 @@ urlpatterns = [
         'tenants/<uuid:tenant_id>/crm/contacts/<uuid:contact_id>/',
         contact_detail,
         name='contact-detail',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/crm/contacts/<uuid:contact_id>/stats/',
+        ContactStatsView.as_view(),
+        name='contact-stats',
     ),
     path('tenants/<uuid:tenant_id>/crm/leads/', lead_list, name='lead-list'),
     path(

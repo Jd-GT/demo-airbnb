@@ -1,9 +1,19 @@
 from django.urls import path
 
-from .views import AvailabilityCheckView, QuoteView, ReservationViewSet
+from .views import (
+    AvailabilityCheckView,
+    PriceRuleViewSet,
+    QuoteView,
+    ReservationViewSet,
+)
 
 reservation_list = ReservationViewSet.as_view({'get': 'list', 'post': 'create'})
 reservation_detail = ReservationViewSet.as_view({'get': 'retrieve'})
+
+price_rule_list = PriceRuleViewSet.as_view({'get': 'list', 'post': 'create'})
+price_rule_detail = PriceRuleViewSet.as_view(
+    {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
+)
 
 urlpatterns = [
     path(
@@ -25,5 +35,15 @@ urlpatterns = [
         'tenants/<uuid:tenant_id>/booking/quote/',
         QuoteView.as_view(),
         name='booking-quote',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/booking/price-rules/',
+        price_rule_list,
+        name='price-rule-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/booking/price-rules/<uuid:rule_id>/',
+        price_rule_detail,
+        name='price-rule-detail',
     ),
 ]

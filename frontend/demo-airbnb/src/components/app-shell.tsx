@@ -13,22 +13,42 @@ import {
   ChevronRight,
   Settings,
   LogOut,
+  Wallet,
+  BookOpen,
+  Brush,
+  MessageSquare,
+  Users,
+  ClipboardList,
 } from "lucide-react";
 import { useState } from "react";
-import { useLogout } from "@/components/auth-provider";
+import { useAuth, useLogout } from "@/components/auth-provider";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/reservas", label: "Reservas", icon: ClipboardList },
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
-  { href: "/finanzas", label: "Finanzas", icon: DollarSign },
   { href: "/propiedades", label: "Propiedades", icon: Building2 },
+  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/finanzas", label: "Finanzas", icon: DollarSign },
+  { href: "/pagos", label: "Pagos", icon: Wallet },
+  { href: "/contabilidad", label: "Contabilidad", icon: BookOpen },
+  { href: "/tareas", label: "Tareas", icon: Brush },
+  { href: "/plantillas", label: "Plantillas", icon: MessageSquare },
   { href: "/integraciones", label: "Integraciones", icon: Link2 },
   { href: "/settings", label: "Settings", icon: Settings },
+];
+
+const cleanerNavItems = [
+  { href: "/tareas", label: "Mis tareas", icon: Brush },
+  { href: "/settings", label: "Mi cuenta", icon: Settings },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { me } = useAuth();
+  const isCleaner = me?.user.system_role === "CLEANER";
+  const items = isCleaner ? cleanerNavItems : navItems;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -62,7 +82,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

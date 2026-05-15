@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { login, registerNewTenant, registerJoinTenant } from "@/lib/api";
-import { Building2, Loader2, LogIn, UserPlus } from "lucide-react";
+import { login, register } from "@/lib/api";
+import {
+  Building2,
+  Info,
+  KeyRound,
+  Loader2,
+  LogIn,
+  UserPlus,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
-type AuthMode = "login" | "register-new" | "register-join";
+type AuthMode = "login" | "register";
+
+const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+
+function normalizeSubdomain(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, "-");
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,12 +30,23 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [registerType, setRegisterType] = useState<"new_tenant" | "join_tenant">("new_tenant");
   const [fullName, setFullName] = useState("");
+  const [invitationCode, setInvitationCode] = useState("");
   const [tenantName, setTenantName] = useState("");
   const [tenantSubdomain, setTenantSubdomain] = useState("");
   const [tenantSubdomainJoin, setTenantSubdomainJoin] = useState("");
-  const [invitationCode, setInvitationCode] = useState("");
+  // The user explicitly chooses the type of code they were given.
+  // The backend still validates against the actual purpose stored on
+  // the code itself, so the UI choice is purely for collecting the
+  // right extra fields and showing helpful copy.
+  const [codeType, setCodeType] = useState<"new" | "join">("join");
+
+  const subdomainError = useMemo(() => {
+    if (!tenantSubdomain) return "";
+    return SUBDOMAIN_REGEX.test(tenantSubdomain)
+      ? ""
+      : "Solo minúsculas, números y guiones. No incluyas '.com' ni espacios.";
+  }, [tenantSubdomain]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -45,23 +69,27 @@ export default function LoginPage() {
     setError("");
 
     try {
-      if (registerType === "new_tenant") {
-        await registerNewTenant({
-          email,
-          full_name: fullName,
-          password,
-          tenant_name: tenantName,
-          tenant_subdomain: tenantSubdomain.trim().toLowerCase().replace(/\s+/g, "-"),
-        });
-      } else {
-        await registerJoinTenant({
-          email,
-          full_name: fullName,
-          password,
-          tenant_subdomain_join: tenantSubdomainJoin.trim().toLowerCase(),
-          invitation_code: invitationCode.trim().toUpperCase(),
-        });
+      const payload: Parameters<typeof register>[0] = {
+        invitation_code: invitationCode.trim().toUpperCase(),
+        email: email.trim(),
+        full_name: fullName.trim(),
+        password,
+      };
+
+      if (codeType === "new") {
+        const subdomain = normalizeSubdomain(tenantSubdomain);
+        if (!SUBDOMAIN_REGEX.test(subdomain)) {
+          throw new Error(
+            "El subdominio sólo puede tener minúsculas, números y guiones."
+          );
+        }
+        payload.tenant_name = tenantName.trim();
+        payload.tenant_subdomain = subdomain;
+      } else if (tenantSubdomainJoin.trim()) {
+        payload.tenant_subdomain_join = normalizeSubdomain(tenantSubdomainJoin);
       }
+
+      await register(payload);
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -86,42 +114,36 @@ export default function LoginPage() {
               Demo Airbnb PMS
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {mode === "login"
-                ? "Inicia sesión en tu cuenta"
-                : "Crea tu cuenta"}
+              {mode === "login" ? "Inicia sesión en tu cuenta" : "Crea tu cuenta"}
             </p>
           </div>
 
           {mode === "login" ? (
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-sm text-muted-foreground">Email</label>
+              <Field label="Email">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                  className={inputClass}
                   placeholder="tu@email.com"
+                  autoComplete="email"
                   required
                 />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground">Contraseña</label>
+              </Field>
+              <Field label="Contraseña">
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                  className={inputClass}
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   required
                 />
-              </div>
+              </Field>
 
-              {error && (
-                <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
-                  {error}
-                </p>
-              )}
+              {error && <ErrorBanner message={error} />}
 
               <button
                 type="submit"
@@ -151,105 +173,131 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => setMode("register-new")}
+                onClick={() => {
+                  setMode("register");
+                  setError("");
+                }}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border border-zinc-700 text-foreground hover:bg-zinc-800 transition-colors"
               >
                 <UserPlus className="h-5 w-5" />
-                Crear cuenta nueva
+                Tengo un código de invitación
               </button>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
+              <InfoBanner>
+                Necesitas un <b>código de invitación</b>. Para abrir una
+                empresa nueva, pídele uno al administrador de la plataforma.
+                Para entrar al equipo de una empresa existente, pídeselo al
+                dueño de esa empresa.
+              </InfoBanner>
+
+              <Field
+                label="Código de invitación"
+                hint="El código define a dónde te vas a registrar. Sin un código válido no se puede crear cuenta."
+                icon={<KeyRound className="h-4 w-4" />}
+              >
+                <input
+                  type="text"
+                  value={invitationCode}
+                  onChange={(e) =>
+                    setInvitationCode(
+                      e.target.value.replace(/\s+/g, "").toUpperCase()
+                    )
+                  }
+                  className={`${inputClass} font-mono tracking-wider`}
+                  placeholder="EJ: AB12CD34EF56"
+                  required
+                />
+              </Field>
+
               <div>
                 <label className="text-sm text-muted-foreground">
-                  Tipo de cuenta
+                  ¿Qué tipo de código tienes?
                 </label>
                 <div className="flex gap-2 mt-2">
                   <button
                     type="button"
-                    onClick={() => setRegisterType("new_tenant")}
+                    onClick={() => setCodeType("join")}
                     className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
-                      registerType === "new_tenant"
+                      codeType === "join"
                         ? "bg-gold text-zinc-900"
                         : "bg-zinc-800 text-zinc-400 hover:text-foreground"
                     }`}
                   >
-                   Nueva Empresa
+                    Para entrar a una empresa
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRegisterType("join_tenant")}
+                    onClick={() => setCodeType("new")}
                     className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
-                      registerType === "join_tenant"
+                      codeType === "new"
                         ? "bg-gold text-zinc-900"
                         : "bg-zinc-800 text-zinc-400 hover:text-foreground"
                     }`}
                   >
-                    Unirse a Empresa
+                    Para abrir una empresa nueva
                   </button>
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Si te equivocas no pasa nada: el servidor te avisará si el
+                  código es de otro tipo.
+                </p>
               </div>
 
-              <div>
-                <label className="text-sm text-muted-foreground">
-                  Nombre completo
-                </label>
+              <Field label="Nombre completo">
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                  className={inputClass}
                   placeholder="Juan Perez"
+                  autoComplete="name"
                   required
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="text-sm text-muted-foreground">Email</label>
+              <Field label="Email">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                  className={inputClass}
                   placeholder="tu@email.com"
+                  autoComplete="email"
                   required
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label className="text-sm text-muted-foreground">
-                  Contraseña
-                </label>
+              <Field label="Contraseña">
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                  className={inputClass}
                   placeholder="Mínimo 8 caracteres"
                   minLength={8}
+                  autoComplete="new-password"
                   required
                 />
-              </div>
+              </Field>
 
-              {registerType === "new_tenant" ? (
+              {codeType === "new" ? (
                 <>
-                  <div>
-                    <label className="text-sm text-muted-foreground">
-                      Nombre de tu empresa
-                    </label>
+                  <Field label="Nombre comercial de tu empresa">
                     <input
                       type="text"
                       value={tenantName}
                       onChange={(e) => setTenantName(e.target.value)}
-                      className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                      className={inputClass}
                       placeholder="Caribe Rentals"
                       required
                     />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">
-                      Subdominio (URL)
-                    </label>
+                  </Field>
+                  <Field
+                    label="Subdominio para tu empresa"
+                    hint="Este texto antecede a la URL de tu PMS. NO es un dominio completo: no escribas '.com' ni 'http://'. Solo letras, números y guiones."
+                  >
                     <div className="flex items-center mt-1">
                       <span className="px-3 py-3 rounded-l-lg bg-zinc-800/50 border border-zinc-700 border-r-0 text-zinc-400 text-sm">
                         https://
@@ -258,61 +306,39 @@ export default function LoginPage() {
                         type="text"
                         value={tenantSubdomain}
                         onChange={(e) =>
-                          setTenantSubdomain(
-                            e.target.value.toLowerCase().replace(/\s+/g, "-")
-                          )
+                          setTenantSubdomain(normalizeSubdomain(e.target.value))
                         }
-                        className="flex-1 px-4 py-3 rounded-r-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
+                        className="flex-1 px-4 py-3 bg-zinc-800/50 border-y border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
                         placeholder="caribe-rentals"
                         required
                       />
+                      <span className="px-3 py-3 rounded-r-lg bg-zinc-800/50 border border-zinc-700 border-l-0 text-zinc-400 text-sm">
+                        .demoairbnb.app
+                      </span>
                     </div>
-                  </div>
+                    {subdomainError && (
+                      <p className="text-xs text-red-400 mt-1">{subdomainError}</p>
+                    )}
+                  </Field>
                 </>
               ) : (
-                <>
-                  <div>
-                    <label className="text-sm text-muted-foreground">
-                      Empresa a unirte
-                    </label>
-                    <input
-                      type="text"
-                      value={tenantSubdomainJoin}
-                      onChange={(e) =>
-                        setTenantSubdomainJoin(
-                          e.target.value.toLowerCase()
-                        )
-                      }
-                      className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
-                      placeholder="caribe"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">
-                      Código de invitación
-                    </label>
-                    <input
-                      type="text"
-                      value={invitationCode}
-                      onChange={(e) =>
-                        setInvitationCode(
-                          e.target.value.replace(/\s+/g, "").toUpperCase()
-                        )
-                      }
-                      className="w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
-                      placeholder="CODIGO123"
-                      required
-                    />
-                  </div>
-                </>
+                <Field
+                  label="Subdominio de la empresa (opcional)"
+                  hint="No es obligatorio: el código ya identifica a la empresa. Llénalo solo si quieres confirmar visualmente que es la correcta."
+                >
+                  <input
+                    type="text"
+                    value={tenantSubdomainJoin}
+                    onChange={(e) =>
+                      setTenantSubdomainJoin(normalizeSubdomain(e.target.value))
+                    }
+                    className={inputClass}
+                    placeholder="caribe-rentals"
+                  />
+                </Field>
               )}
 
-              {error && (
-                <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
-                  {error}
-                </p>
-              )}
+              {error && <ErrorBanner message={error} />}
 
               <button
                 type="submit"
@@ -331,7 +357,10 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                onClick={() => setMode("login")}
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
                 className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 ¿Ya tienes cuenta? Inicia sesión
@@ -340,6 +369,51 @@ export default function LoginPage() {
           )}
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full mt-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors";
+
+function Field({
+  label,
+  hint,
+  icon,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="text-sm text-muted-foreground flex items-center gap-2">
+        {icon}
+        {label}
+      </label>
+      {children}
+      {hint && (
+        <p className="text-xs text-muted-foreground mt-1 leading-snug">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
+      {message}
+    </p>
+  );
+}
+
+function InfoBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 text-xs text-zinc-300 bg-zinc-800/50 border border-zinc-700 rounded-lg p-3">
+      <Info className="h-4 w-4 shrink-0 mt-0.5 text-gold" />
+      <p className="leading-snug">{children}</p>
     </div>
   );
 }

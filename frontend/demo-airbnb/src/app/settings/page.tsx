@@ -1,21 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import AppShell from "@/components/app-shell";
-import { fetchCurrentTenant, fetchTenantUsers, updateTenantInvitationCode, TenantUser } from "@/lib/api";
-import { useLogout } from "@/components/auth-provider";
+import {
+  createInvitationCode,
+  deactivateInvitationCode,
+  fetchInvitationCodes,
+  fetchTenantUsers,
+  InvitationCode,
+  TenantUser,
+} from "@/lib/api";
+import { useAuth, useLogout } from "@/components/auth-provider";
 import { motion } from "framer-motion";
 import {
   Building2,
-  Copy,
   Check,
-  Users,
-  LogOut,
+  Copy,
   Loader2,
-  Save,
-  Trash2,
+  LogOut,
   Plus,
+  ShieldAlert,
+  Trash2,
+  Users,
 } from "lucide-react";
 
 const containerVariants = {
@@ -29,55 +35,78 @@ const itemVariants = {
 };
 
 export default function SettingsPage() {
-  const router = useRouter();
   const logout = useLogout();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [tenant, setTenant] = useState<any>(null);
+  const { me, loading: authLoading, can } = useAuth();
+
+  const canManageUsers = can("users", "admin");
+
   const [users, setUsers] = useState<TenantUser[]>([]);
-  const [invitationCode, setInvitationCode] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [codes, setCodes] = useState<InvitationCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [maxUses, setMaxUses] = useState(1);
+  const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      const [tenantData, usersData] = await Promise.all([
-        fetchCurrentTenant(),
-        fetchTenantUsers(),
-      ]);
-      setTenant(tenantData);
-      setUsers(usersData);
-      setInvitationCode(tenantData.branding_config?.invitation_code || "");
+      const tasks: Promise<unknown>[] = [];
+      if (canManageUsers) {
+        tasks.push(fetchTenantUsers().then(setUsers));
+        tasks.push(fetchInvitationCodes().then(setCodes));
+      }
+      await Promise.all(tasks);
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Error cargando datos");
     } finally {
       setLoading(false);
     }
-  }
+  }, [canManageUsers]);
 
-  async function handleSaveCode() {
-    setSaving(true);
+  useEffect(() => {
+    if (!authLoading) {
+      loadData();
+    }
+  }, [authLoading, loadData]);
+
+  async function handleCreateCode(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    setError("");
     try {
-      await updateTenantInvitationCode(invitationCode);
-      const tenantData = await fetchCurrentTenant();
-      setTenant(tenantData);
+      const created = await createInvitationCode({ max_uses: maxUses, notes });
+      setCodes((prev) => [created, ...prev]);
+      setMaxUses(1);
+      setNotes("");
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : "Error creando código");
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   }
 
-  function handleCopyCode() {
-    navigator.clipboard.writeText(invitationCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function handleDeactivate(codeId: string) {
+    if (!confirm("¿Desactivar este código? No se podrá usar más para invitar.")) return;
+    try {
+      await deactivateInvitationCode(codeId);
+      setCodes((prev) =>
+        prev.map((c) => (c.id === codeId ? { ...c, is_active: false } : c))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desactivando código");
+    }
   }
 
-  if (loading) {
+  function handleCopy(code: string) {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  }
+
+  if (authLoading || loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center h-64">
@@ -87,6 +116,8 @@ export default function SettingsPage() {
     );
   }
 
+  const tenant = me?.tenant;
+
   return (
     <AppShell>
       <motion.div variants={containerVariants} initial="hidden" animate="show">
@@ -95,9 +126,17 @@ export default function SettingsPage() {
             Configuración
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gestiona tu empresa y usuarios
+            Información de tu empresa, equipo e invitaciones.
           </p>
         </motion.div>
+
+        {error && (
+          <motion.div variants={itemVariants} className="mb-6">
+            <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
+              {error}
+            </p>
+          </motion.div>
+        )}
 
         <motion.div variants={itemVariants} className="mb-8">
           <div className="glass-card rounded-xl p-6">
@@ -107,101 +146,228 @@ export default function SettingsPage() {
                 Empresa
               </h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm text-muted-foreground">Nombre</label>
-                <p className="text-foreground font-medium">{tenant?.name}</p>
+                <p className="text-foreground font-medium">{tenant?.name ?? "—"}</p>
               </div>
               <div>
                 <label className="text-sm text-muted-foreground">Subdominio</label>
-                <p className="text-foreground font-medium">{tenant?.subdomain}</p>
+                <p className="text-foreground font-medium">
+                  {tenant?.subdomain ?? "—"}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Tu rol</label>
+                <p className="text-foreground font-medium">
+                  {me?.user.system_role === "OWNER"
+                    ? "Propietario"
+                    : me?.user.role?.name ?? "Miembro"}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm text-muted-foreground">Tu email</label>
+                <p className="text-foreground font-medium">{me?.user.email}</p>
               </div>
             </div>
           </div>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="mb-8">
-          <div className="glass-card rounded-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Users className="h-5 w-5 text-gold" />
-              <h2 className="font-serif text-xl font-semibold text-foreground">
-                Código de Invitación
-              </h2>
-            </div>
-            
-            <p className="text-sm text-muted-foreground mb-4">
-              Comparte este código con personas que quieras que se unan a tu empresa.
-            </p>
-            
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={invitationCode}
-                onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
-                className="flex-1 px-4 py-3 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none transition-colors"
-                placeholder="CODIGO123"
-              />
-              <button
-                onClick={handleCopyCode}
-                className="p-3 rounded-lg border border-zinc-700 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
-              </button>
-              <button
-                onClick={handleSaveCode}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg bg-gold text-zinc-900 font-medium hover:bg-gold/90 transition-colors disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                Guardar
-              </button>
-            </div>
-          </div>
-        </motion.div>
+        {canManageUsers ? (
+          <>
+            <motion.div variants={itemVariants} className="mb-8">
+              <div className="glass-card rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Users className="h-5 w-5 text-gold" />
+                  <h2 className="font-serif text-xl font-semibold text-foreground">
+                    Códigos de Invitación
+                  </h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Cada código permite que una persona se una a tu empresa. Puedes
+                  fijar cuántos usos admite y, si quieres, dejar una nota para
+                  recordar a quién se lo enviaste.
+                </p>
 
-        <motion.div variants={itemVariants} className="mb-8">
-          <div className="glass-card rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Users className="h-5 w-5 text-gold" />
-                <h2 className="font-serif text-xl font-semibold text-foreground">
-                  Usuarios
-                </h2>
-              </div>
-            </div>
-            
-            {users.length > 0 ? (
-              <div className="space-y-2">
-                {users.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30"
+                <form
+                  onSubmit={handleCreateCode}
+                  className="grid grid-cols-1 md:grid-cols-[100px_1fr_auto] gap-2 mb-6"
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    value={maxUses}
+                    onChange={(e) =>
+                      setMaxUses(Math.max(1, parseInt(e.target.value, 10) || 1))
+                    }
+                    className="px-3 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none"
+                    placeholder="Usos"
+                  />
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="px-3 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700 text-foreground focus:border-gold/50 focus:outline-none"
+                    placeholder="Nota (ej: 'Para Carolina, recepcionista')"
+                  />
+                  <button
+                    type="submit"
+                    disabled={creating}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gold text-zinc-900 font-medium hover:bg-gold/90 transition-colors disabled:opacity-50"
                   >
-                    <div>
-                      <p className="text-foreground font-medium">{user.full_name}</p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        user.system_role === 'OWNER' 
-                          ? 'bg-gold/20 text-gold' 
-                          : 'bg-zinc-700 text-zinc-300'
-                      }`}>
-                        {user.system_role === 'OWNER' ? 'Propietario' : 'Miembro'}
-                      </span>
-                      {user.is_primary_owner && (
-                        <p className="text-xs text-muted-foreground mt-1">Dueño de empresa</p>
-                      )}
-                    </div>
+                    {creating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Generar código
+                  </button>
+                </form>
+
+                {codes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Aún no has generado códigos. El primero lo puedes crear arriba.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {codes.map((code) => (
+                      <div
+                        key={code.id}
+                        className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg border ${
+                          code.is_usable
+                            ? "border-zinc-700 bg-zinc-800/30"
+                            : "border-zinc-800 bg-zinc-900/40 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <code className="font-mono text-sm tracking-wider text-gold">
+                            {code.code}
+                          </code>
+                          <button
+                            onClick={() => handleCopy(code.code)}
+                            className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                            title="Copiar"
+                          >
+                            {copiedCode === code.code ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </button>
+                          <span className="text-xs text-muted-foreground">
+                            {code.uses_count} / {code.max_uses} usos
+                          </span>
+                          {!code.is_active && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-red-500/15 text-red-300">
+                              Desactivado
+                            </span>
+                          )}
+                          {code.is_expired && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/15 text-yellow-300">
+                              Expirado
+                            </span>
+                          )}
+                          {code.is_exhausted && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-zinc-700 text-zinc-300">
+                              Agotado
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {code.notes && (
+                            <span className="text-xs text-muted-foreground italic max-w-[20rem] truncate">
+                              {code.notes}
+                            </span>
+                          )}
+                          {code.is_active && (
+                            <button
+                              onClick={() => handleDeactivate(code.id)}
+                              className="p-1 rounded text-red-400 hover:bg-red-500/10 transition-colors"
+                              title="Desactivar código"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No hay otros usuarios</p>
-            )}
-          </div>
-        </motion.div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="mb-8">
+              <div className="glass-card rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <Users className="h-5 w-5 text-gold" />
+                  <h2 className="font-serif text-xl font-semibold text-foreground">
+                    Usuarios del equipo ({users.length})
+                  </h2>
+                </div>
+
+                {users.length > 0 ? (
+                  <div className="space-y-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-zinc-800/30"
+                      >
+                        <div>
+                          <p className="text-foreground font-medium">
+                            {user.full_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {user.email}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span
+                            className={`text-xs px-2 py-1 rounded ${
+                              user.system_role === "OWNER"
+                                ? "bg-gold/20 text-gold"
+                                : "bg-zinc-700 text-zinc-300"
+                            }`}
+                          >
+                            {user.system_role === "OWNER"
+                              ? "Propietario"
+                              : user.role?.name || "Miembro"}
+                          </span>
+                          {!user.is_active && (
+                            <p className="text-xs text-red-400 mt-1">
+                              Desactivado
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No hay otros usuarios todavía.
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          </>
+        ) : (
+          <motion.div variants={itemVariants} className="mb-8">
+            <div className="glass-card rounded-xl p-6 flex items-start gap-3">
+              <ShieldAlert className="h-5 w-5 text-zinc-400 mt-0.5" />
+              <div>
+                <p className="text-sm text-foreground font-medium">
+                  Sólo los administradores ven el listado de usuarios y los
+                  códigos de invitación
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pídele al propietario de la empresa que ajuste tu rol si
+                  necesitas acceso a estas opciones.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div variants={itemVariants}>
           <button
