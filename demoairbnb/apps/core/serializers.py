@@ -9,9 +9,9 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .constants import SystemRole, validate_permissions_map
-from .integrations import GoogleCalendarCredential
 from .models import (
     EmailTemplate,
+    GoogleCalendarCredential,
     InvitationCode,
     InvitationCodePurpose,
     Tenant,

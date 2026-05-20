@@ -274,11 +274,6 @@ def default_read_permissions() -> dict[str, str]:
     return safe_readonly_permissions()
 
 
-# Side-effect import so the GoogleCalendarCredential model in
-# apps/core/integrations.py is registered with this app at import time.
-from .integrations import GoogleCalendarCredential  # noqa: E402,F401
-
-
 def _generate_code(length: int = 12) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))

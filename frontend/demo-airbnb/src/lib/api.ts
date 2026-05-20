@@ -742,54 +742,6 @@ async function requestWithSession<T>(
   }
 }
 
-async function requestBlobWithSession(
-  path: string,
-  session: DemoSession,
-  options: Omit<RequestInit, "body"> = {},
-  allowRefresh = true,
-): Promise<{ blob: Blob; filename: string | null }> {
-  const headers = new Headers(options.headers);
-  headers.set("Authorization", `Bearer ${session.access}`);
-  headers.set("X-Tenant-ID", session.tenantId);
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
-
-  if (allowRefresh && response.status === 401) {
-    const refreshed = await refreshSession(session);
-    return requestBlobWithSession(path, refreshed, options, false);
-  }
-
-  if (!response.ok) {
-    const payload = await parseResponseBody(response);
-    const message =
-      typeof payload === "object" && payload !== null && "detail" in payload
-        ? String((payload as { detail: string }).detail)
-        : `La descarga desde ${path} fallo con estado ${response.status}.`;
-    throw new ApiError(message, response.status, payload);
-  }
-
-  const disposition = response.headers.get("Content-Disposition");
-  const filenameMatch = disposition?.match(/filename="?([^"]+)"?/i);
-  return {
-    blob: await response.blob(),
-    filename: filenameMatch?.[1] ?? null,
-  };
-}
-
-function saveBlob(blob: Blob, filename: string) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
-
 async function ensureSeedData(session: DemoSession) {
   if (seededTenantId === session.tenantId) {
     return;
@@ -1018,28 +970,6 @@ export async function fetchFinanceAnalytics(params: { year: number; month: numbe
   );
 }
 
-export async function downloadReservationVoucher(
-  tenantId: string,
-  reservationId: string,
-) {
-  const session = await ensureDemoSession();
-  const resolvedTenantId = tenantId && tenantId !== "unknown" ? tenantId : session.tenantId;
-  const { blob, filename } = await requestBlobWithSession(
-    `/api/tenants/${resolvedTenantId}/booking/reservations/${reservationId}/voucher-pdf/`,
-    session,
-  );
-  saveBlob(blob, filename ?? `voucher-${reservationId}.pdf`);
-}
-
-export async function downloadPropertyReport(tenantId: string, reportId: string) {
-  const session = await ensureDemoSession();
-  const resolvedTenantId = tenantId && tenantId !== "unknown" ? tenantId : session.tenantId;
-  const { blob, filename } = await requestBlobWithSession(
-    `/api/tenants/${resolvedTenantId}/finance/profitability/${reportId}/download-pdf/`,
-    session,
-  );
-  saveBlob(blob, filename ?? `report-${reportId}.pdf`);
-}
 
 export async function fetchIntegrations(): Promise<IntegrationApi[]> {
   const session = await ensureDemoSession();
@@ -1209,13 +1139,6 @@ export async function updateContact(contactId: string, input: Partial<Contact>) 
 
 export async function deleteContact(contactId: string) {
   return tenantRequest<void>(`/crm/contacts/${contactId}/`, { method: "DELETE" });
-}
-
-export async function createProperty(input: Partial<PropertyApi>) {
-  return tenantRequest<PropertyApi>("/inventory/properties/", {
-    method: "POST",
-    body: input,
-  });
 }
 
 export async function deleteProperty(propertyId: string) {

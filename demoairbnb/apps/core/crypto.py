@@ -41,3 +41,20 @@ def decrypt_str(ciphertext: str) -> str:
         return _fernet().decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except InvalidToken as exc:
         raise ValueError("Invalid or tampered ciphertext") from exc
+
+
+# Aliases with permissive semantics (None / empty pass through, tampered → None).
+# Used by older modules and tests.
+def encrypt_secret(value: str | None) -> str | None:
+    if value is None or value == "":
+        return value
+    return encrypt_str(value)
+
+
+def decrypt_secret(value: str | None) -> str | None:
+    if value is None or value == "":
+        return value
+    try:
+        return decrypt_str(value)
+    except ValueError:
+        return None

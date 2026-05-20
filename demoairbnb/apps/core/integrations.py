@@ -22,9 +22,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from .crypto import decrypt_str, encrypt_str
+# Re-exported for backwards-compatible imports.
+from .models import GoogleCalendarCredential  # noqa: F401
 
 if TYPE_CHECKING:
-    from .models import GoogleCalendarCredential
     from apps.booking.models import Reservation
 
 
