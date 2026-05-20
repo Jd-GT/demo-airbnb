@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -14,9 +14,10 @@ import {
   Bell,
   LogOut,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,24 +28,62 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/finanzas", label: "Finanzas", icon: DollarSign },
   { href: "/propiedades", label: "Propiedades", icon: Building2 },
   { href: "/integraciones", label: "Integraciones", icon: Link2 },
 ];
 
+function isNavItemActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function getInitials(name?: string | null) {
+  if (!name) {
+    return "US";
+  }
+
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "US";
+}
+
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isAuthenticated, loading, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+  const displayName = user?.full_name || user?.email || "Usuario";
+  const initials = getInitials(user?.full_name || user?.email);
   const activeItem =
-    navItems.find((item) =>
-      item.href === "/" ? pathname === "/" : pathname.startsWith(item.href),
-    ) ?? navItems[0];
+    navItems.find((item) => isNavItemActive(pathname, item.href)) ?? navItems[0];
   const sidebarTransition = shouldReduceMotion
     ? { duration: 0 }
     : { duration: 0.3, ease: [0.4, 0, 0.2, 1] as const };
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      const nextPath = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
+      router.replace(`/login${nextPath}`);
+    }
+  }, [isAuthenticated, loading, pathname, router]);
+
+  if (loading) {
+    return (
+      <div className="auth-page">
+        <div className="auth-status">Cargando sesion...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -79,7 +118,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isNavItemActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
@@ -168,8 +207,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
             <nav aria-label="Navegacion principal" className="hidden items-center gap-1 xl:flex">
               {navItems.map((item) => {
-                const isActive =
-                  item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const isActive = isNavItemActive(pathname, item.href);
 
                 return (
                   <Link
@@ -210,11 +248,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Avatar className="h-8 w-8 border border-gold/20">
                       <AvatarFallback className="bg-gold/15 text-xs font-semibold text-gold">
-                        EO
+                        {initials}
                       </AvatarFallback>
                     </Avatar>
                     <span className="hidden text-sm font-medium text-foreground sm:inline">
-                      Emilamar Owner
+                      {displayName}
                     </span>
                   </button>
                 </DropdownMenuTrigger>
@@ -223,13 +261,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   className="glass-card w-56 border-border/70"
                 >
                   <DropdownMenuLabel>
-                    <span className="block text-sm font-medium">Emilamar Owner</span>
+                    <span className="block text-sm font-medium">{displayName}</span>
                     <span className="block text-xs font-normal text-muted-foreground">
-                      Property Manager
+                      {user?.email}
                     </span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-300 focus:text-red-200">
+                  <DropdownMenuItem
+                    className="text-red-300 focus:text-red-200"
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void logout();
+                    }}
+                  >
                     <LogOut className="h-4 w-4" />
                     Cerrar sesion
                   </DropdownMenuItem>
@@ -243,8 +287,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             className="flex gap-2 overflow-x-auto border-t border-border/60 px-6 py-3 lg:hidden"
           >
             {navItems.map((item) => {
-              const isActive =
-                item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const isActive = isNavItemActive(pathname, item.href);
 
               return (
                 <Link

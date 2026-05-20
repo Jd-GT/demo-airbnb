@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import TenantIntegrationsView, TenantRoleViewSet, TenantUserViewSet, TenantViewSet
+from .views import LogoutView, TenantIntegrationsView, TenantRoleViewSet, TenantUserViewSet, TenantViewSet
 
 
 tenant_list = TenantViewSet.as_view({"get": "list", "post": "create"})
@@ -13,6 +13,7 @@ user_list = TenantUserViewSet.as_view({"get": "list", "post": "create"})
 user_detail = TenantUserViewSet.as_view({"get": "retrieve", "patch": "partial_update"})
 
 urlpatterns = [
+    path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("tenants/", tenant_list, name="tenant-list"),
     path("tenants/<uuid:pk>/", tenant_detail, name="tenant-detail"),
     path("tenants/<uuid:tenant_id>/roles/", role_list, name="tenant-role-list"),

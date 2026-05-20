@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
+import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
+import "../App.css";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`${inter.variable} ${cormorant.variable} antialiased font-sans`}>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

@@ -1,11 +1,72 @@
 from __future__ import annotations
 
+from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .constants import SystemRole, validate_permissions_map
 from .models import Tenant, TenantRole, User
 from .services import create_tenant_user, create_tenant_with_owner, update_tenant_user
+
+
+def serialize_auth_user(user: User) -> dict[str, str | None]:
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "system_role": user.system_role,
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+    }
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8, write_only=True, trim_whitespace=False)
+
+    default_error_messages = {
+        "invalid_credentials": "Unable to log in with the provided credentials.",
+        "inactive": "This user account is inactive.",
+    }
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = authenticate(
+            request=request,
+            username=attrs["email"],
+            password=attrs["password"],
+        )
+
+        if user is None:
+            raise serializers.ValidationError(
+                {"detail": self.error_messages["invalid_credentials"]},
+                code="authorization",
+            )
+
+        if not user.is_active:
+            raise serializers.ValidationError(
+                {"detail": self.error_messages["inactive"]},
+                code="authorization",
+            )
+
+        attrs["user"] = user
+        return attrs
+
+
+class PersonalizedTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        access_token = data["access"]
+        refresh_token = data["refresh"]
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "user": serialize_auth_user(self.user),
+            # Keep SimpleJWT's default keys for existing clients already using them.
+            "access": access_token,
+            "refresh": refresh_token,
+        }
 
 
 class TenantSerializer(serializers.ModelSerializer):
