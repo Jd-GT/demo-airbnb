@@ -9,12 +9,14 @@ import {
   getMonthDateRange,
   shiftMonth,
   toNumber,
+  downloadReservationVoucher,
 } from "@/lib/api";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Download,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -461,6 +463,24 @@ export default function CalendarioPage() {
                       </span>
                     </div>
                   </div>
+                </div>
+                <div className="mt-6 flex gap-2">
+                  <button
+                    onClick={() => {
+                      const tenantId = localStorage.getItem("tenant_id") || "unknown";
+                      downloadReservationVoucher(tenantId, selectedBooking.id);
+                    }}
+                    className="flex items-center gap-2 flex-1 rounded-lg bg-gold/20 px-3 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/30"
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar Voucher
+                  </button>
+                  <button
+                    onClick={() => setSelectedBooking(null)}
+                    className="flex-1 rounded-lg border border-muted bg-muted/20 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40"
+                  >
+                    Cerrar
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

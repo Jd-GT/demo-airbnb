@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .constants import ModuleKey, PermissionLevel
-from .models import Tenant, TenantRole, User
+from .models import Tenant, TenantRole, User, EmailTemplate
 from .permissions import TenantModulePermission
 from .serializers import (
     IntegrationItemSerializer,
@@ -21,6 +21,9 @@ from .serializers import (
     TenantUserCreateSerializer,
     TenantUserSerializer,
     TenantUserUpdateSerializer,
+    EmailTemplateSerializer,
+    EmailTemplateCreateSerializer,
+    EmailTemplateUpdateSerializer,
 )
 from .services import normalize_integrations_config
 
@@ -143,3 +146,44 @@ class TenantIntegrationsView(GenericAPIView):
             many=True,
         )
         return Response(serializer.data)
+
+
+class EmailTemplateViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Email/SMS message templates per tenant."""
+
+    serializer_class = EmailTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, TenantModulePermission]
+    permission_module = ModuleKey.CORE.value
+    lookup_url_kwarg = "template_id"
+
+    def get_tenant(self):
+        return get_object_or_404(Tenant, id=self.kwargs["tenant_id"])
+
+    def get_queryset(self):
+        return EmailTemplate.all_objects.filter(tenant=self.get_tenant())
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EmailTemplateCreateSerializer
+        if self.action in {"partial_update", "update"}:
+            return EmailTemplateUpdateSerializer
+        return EmailTemplateSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["tenant"] = self.get_tenant()
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=self.get_tenant())
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)

@@ -4,11 +4,13 @@ from calendar import monthrange
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal
+from uuid import uuid4
 
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.booking.models import Reservation, ReservationStatus
+from .models import PropertyProfitabilityReport, Voucher
 
 
 ACTIVE_REVENUE_STATUSES = (
@@ -117,3 +119,144 @@ def get_finance_analytics(*, tenant_id, year: int, month: int) -> dict:
         ],
         "revenue_by_property": revenue_by_property,
     }
+
+
+def calculate_property_profitability(
+    property_obj, *, year: int, month: int, **expenses
+) -> PropertyProfitabilityReport:
+    """Calculate and create P&L report for a property."""
+    month_start, month_end, days_in_month = get_month_window(year, month)
+    reservations = Reservation.all_objects.filter(
+        tenant_id=property_obj.tenant_id,
+        property=property_obj,
+        status__in=ACTIVE_REVENUE_STATUSES,
+    )
+
+    # Calculate revenue
+    gross_revenue = Decimal("0.00")
+    occupied_nights = 0
+
+    for reservation in reservations:
+        if month_start <= reservation.check_in < month_end:
+            gross_revenue += reservation.total_amount
+        occupied_nights += overlap_nights_for_period(
+            reservation.check_in,
+            reservation.check_out,
+            month_start,
+            month_end,
+        )
+
+    # Process expenses
+    commissions = Decimal(str(expenses.get("commissions", 0)))
+    cleaning_costs = Decimal(str(expenses.get("cleaning_costs", 0)))
+    maintenance_costs = Decimal(str(expenses.get("maintenance_costs", 0)))
+    utilities_costs = Decimal(str(expenses.get("utilities_costs", 0)))
+    platform_fees = Decimal(str(expenses.get("platform_fees", 0)))
+    property_management_fee = Decimal(str(expenses.get("property_management_fee", 0)))
+    other_expenses = Decimal(str(expenses.get("other_expenses", 0)))
+
+    # Calculate metrics
+    net_revenue = gross_revenue - commissions
+    total_expenses = (
+        cleaning_costs
+        + maintenance_costs
+        + utilities_costs
+        + platform_fees
+        + property_management_fee
+        + other_expenses
+    )
+    net_profit = net_revenue - total_expenses
+
+    profit_margin = (
+        (net_profit / net_revenue * 100).quantize(Decimal("0.01"))
+        if net_revenue > 0
+        else Decimal("0.00")
+    )
+
+    occupancy_rate = (
+        (Decimal(occupied_nights) / Decimal(days_in_month) * 100).quantize(Decimal("0.01"))
+        if days_in_month
+        else Decimal("0.00")
+    )
+    avg_daily_rate = (
+        (gross_revenue / Decimal(occupied_nights)).quantize(Decimal("0.01"))
+        if occupied_nights > 0
+        else Decimal("0.00")
+    )
+    revenue_per_available_night = (
+        (net_revenue / Decimal(days_in_month)).quantize(Decimal("0.01"))
+        if days_in_month
+        else Decimal("0.00")
+    )
+
+    # Create or update report
+    report, _ = PropertyProfitabilityReport.all_objects.update_or_create(
+        tenant_id=property_obj.tenant_id,
+        property=property_obj,
+        year=year,
+        month=month,
+        defaults={
+            "gross_revenue": gross_revenue.quantize(Decimal("0.01")),
+            "commissions": commissions.quantize(Decimal("0.01")),
+            "net_revenue": net_revenue.quantize(Decimal("0.01")),
+            "cleaning_costs": cleaning_costs.quantize(Decimal("0.01")),
+            "maintenance_costs": maintenance_costs.quantize(Decimal("0.01")),
+            "utilities_costs": utilities_costs.quantize(Decimal("0.01")),
+            "platform_fees": platform_fees.quantize(Decimal("0.01")),
+            "property_management_fee": property_management_fee.quantize(Decimal("0.01")),
+            "other_expenses": other_expenses.quantize(Decimal("0.01")),
+            "total_expenses": total_expenses.quantize(Decimal("0.01")),
+            "net_profit": net_profit.quantize(Decimal("0.01")),
+            "profit_margin": profit_margin,
+            "occupied_nights": occupied_nights,
+            "total_nights": days_in_month,
+            "occupancy_rate": occupancy_rate,
+            "avg_daily_rate": avg_daily_rate,
+            "revenue_per_available_night": revenue_per_available_night,
+        },
+    )
+    return report
+
+
+def generate_reference_number(voucher_type: str) -> str:
+    """Generate unique voucher reference number."""
+    prefix_map = {"stay": "EST", "payment": "PAG", "invoice": "FAC"}
+    prefix = prefix_map.get(voucher_type, "VOC")
+    timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+    unique_part = str(uuid4())[:8].upper()
+    return f"{prefix}-{timestamp}-{unique_part}"
+
+
+def create_voucher(
+    tenant_id,
+    *,
+    voucher_type: str,
+    guest_name: str,
+    guest_email: str,
+    property_name: str,
+    gross_amount: Decimal,
+    tax_amount: Decimal = Decimal("0.00"),
+    check_in: date | None = None,
+    check_out: date | None = None,
+    notes: str = "",
+) -> Voucher:
+    """Create a new voucher."""
+    reference_number = generate_reference_number(voucher_type)
+    net_amount = gross_amount - tax_amount
+
+    voucher = Voucher.objects.create(
+        tenant_id=tenant_id,
+        reference_number=reference_number,
+        voucher_type=voucher_type,
+        guest_name=guest_name,
+        guest_email=guest_email,
+        property_name=property_name,
+        gross_amount=gross_amount,
+        tax_amount=tax_amount,
+        net_amount=net_amount,
+        check_in=check_in,
+        check_out=check_out,
+        notes=notes,
+    )
+    return voucher
+

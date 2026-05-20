@@ -11,7 +11,7 @@ type AsyncState<T> = {
 
 export function useAsyncData<T>(
   loader: () => Promise<T>,
-  deps: ReadonlyArray<unknown>,
+  deps: ReadonlyArray<unknown> = [],
 ): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);

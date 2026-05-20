@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .constants import SystemRole, validate_permissions_map
-from .models import Tenant, TenantRole, User
+from .models import Tenant, TenantRole, User, EmailTemplate
 from .services import create_tenant_user, create_tenant_with_owner, update_tenant_user
 
 
@@ -220,3 +220,38 @@ class IntegrationItemSerializer(serializers.Serializer):
     color = serializers.CharField()
     last_sync = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     details = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class EmailTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = [
+            "id",
+            "name",
+            "template_type",
+            "subject",
+            "body",
+            "is_active",
+            "is_default",
+            "variables_used",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class EmailTemplateCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = ["name", "template_type", "subject", "body", "is_active", "variables_used"]
+
+    def create(self, validated_data):
+        tenant = self.context["tenant"]
+        return EmailTemplate.objects.create(tenant=tenant, **validated_data)
+
+
+class EmailTemplateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = ["name", "subject", "body", "is_active", "variables_used"]
+

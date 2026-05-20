@@ -197,3 +197,104 @@ def update_tenant_user(*, user: User, data: dict):
         setattr(user, key, value)
     user.save()
     return user
+
+
+@transaction.atomic
+def create_email_template(
+    *,
+    tenant: Tenant,
+    name: str,
+    template_type: str,
+    body: str,
+    subject: str = "",
+    variables_used: list | None = None,
+    is_active: bool = True,
+) -> "EmailTemplate":
+    """Create a new email template for a tenant."""
+    from .models import EmailTemplate
+
+    template = EmailTemplate.objects.create(
+        tenant=tenant,
+        name=name,
+        template_type=template_type,
+        subject=subject,
+        body=body,
+        variables_used=variables_used or [],
+        is_active=is_active,
+    )
+    return template
+
+
+def seed_default_email_templates(tenant: Tenant) -> None:
+    """Seed default email templates for a tenant."""
+    from .models import EmailTemplate
+
+    default_templates = [
+        {
+            "name": "Confirmación de Reserva Estándar",
+            "template_type": "booking_confirmation",
+            "subject": "Reserva Confirmada - {property_name}",
+            "body": """Hola {guest_name},
+
+Tu reserva en {property_name} ha sido confirmada.
+
+Detalles:
+- Check-in: {check_in}
+- Check-out: {check_out}
+- Monto Total: ${total_amount}
+
+¡Esperamos tu llegada!
+
+Saludos,
+El Equipo de {property_name}""",
+            "variables_used": ["guest_name", "property_name", "check_in", "check_out", "total_amount"],
+        },
+        {
+            "name": "Recordatorio de Check-in",
+            "template_type": "booking_reminder",
+            "subject": "Recordatorio: Tu check-in es hoy en {property_name}",
+            "body": """Hola {guest_name},
+
+Este es un recordatorio de que tu check-in es hoy en {property_name}.
+
+Dirección: {property_address}
+Hora de check-in: 3:00 PM
+Hora de check-out: 11:00 AM
+
+Si tienes preguntas, no dudes en contactarnos.
+
+Saludos,
+{property_name}""",
+            "variables_used": ["guest_name", "property_name", "property_address"],
+        },
+        {
+            "name": "Bienvenida Huésped",
+            "template_type": "guest_welcome",
+            "subject": "¡Bienvenido a {property_name}!",
+            "body": """Hola {guest_name},
+
+¡Bienvenido a {property_name}! Nos complace recibirte.
+
+WiFi: {wifi_name}
+Contraseña WiFi: {wifi_password}
+
+Por favor, respeta las normas de convivencia. Si necesitas ayuda, estamos disponibles 24/7.
+
+¡Que disfrutes tu estadía!""",
+            "variables_used": ["guest_name", "property_name", "wifi_name", "wifi_password"],
+        },
+    ]
+
+    for template_data in default_templates:
+        EmailTemplate.all_objects.get_or_create(
+            tenant=tenant,
+            name=template_data["name"],
+            defaults={
+                "template_type": template_data["template_type"],
+                "subject": template_data["subject"],
+                "body": template_data["body"],
+                "variables_used": template_data["variables_used"],
+                "is_active": True,
+            },
+        )
+

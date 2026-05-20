@@ -3,9 +3,10 @@
 import AppShell from "@/components/app-shell";
 import { ErrorCard, LoadingCard } from "@/components/page-feedback";
 import { useAsyncData } from "@/hooks/use-async-data";
-import { fetchFinanceAnalytics, shiftMonth, toNumber } from "@/lib/api";
+import { fetchFinanceAnalytics, downloadPropertyReport, shiftMonth, toNumber } from "@/lib/api";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Download, TrendingDown } from "lucide-react";
+import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -130,6 +131,7 @@ export default function FinanzasPage() {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const previousMonth = shiftMonth(currentYear, currentMonth, -1);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const { data, error, loading } = useAsyncData(async () => {
     const [analytics, previousAnalytics] = await Promise.all([
@@ -216,9 +218,18 @@ export default function FinanzasPage() {
               Analisis financiero detallado de tu cartera
             </p>
           </div>
-          <button className="flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold/20">
+          <button 
+            onClick={async () => {
+              const tenantId = localStorage.getItem("tenant_id") || "unknown";
+              const reportId = localStorage.getItem("current_report_id") || "default";
+              setIsDownloading(true);
+              await downloadPropertyReport(tenantId, reportId);
+              setIsDownloading(false);
+            }}
+            disabled={isDownloading}
+            className="flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/10 px-4 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold/20 disabled:opacity-50 disabled:cursor-not-allowed">
             <Download className="h-4 w-4" />
-            Exportar Reporte
+            {isDownloading ? "Descargando..." : "Exportar Reporte"}
           </button>
         </motion.div>
 
