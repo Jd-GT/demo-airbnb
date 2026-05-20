@@ -58,7 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       const isLoginPage = pathname === "/login";
-      if (!auth && !pathname.startsWith("/login")) {
+      // Rutas publicas que no requieren sesion (landing, callbacks publicos, etc.)
+      const PUBLIC_ROUTES = ["/", "/signup"];
+      const isPublic =
+        PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/login");
+      if (!auth && !isPublic) {
         router.push("/login");
       } else if (auth && isLoginPage) {
         router.push("/");
