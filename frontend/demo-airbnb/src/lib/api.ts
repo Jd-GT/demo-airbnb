@@ -1,7 +1,10 @@
 import {
+  authenticatedFetch,
   getAccessToken,
   getCurrentUser,
   getRefreshToken,
+  login as authLogin,
+  logout as authLogout,
   refreshToken as refreshAuthToken,
 } from "./authService";
 
@@ -186,6 +189,8 @@ export type PropertyApi = {
   occupancy_rate: number;
 };
 
+export type Property = PropertyApi;
+
 export type PropertyCreatePayload = {
   name: string;
   address: string;
@@ -206,8 +211,14 @@ export type ReservationApi = {
   check_in: string;
   check_out: string;
   total_amount: string;
-  status: "DRAFT" | "CONFIRMED" | "CANCELLED";
+  status: "DRAFT" | "CONFIRMED" | "CHECKED_IN" | "CHECKED_OUT" | "CANCELLED";
+  payment_status?: string;
+  amount_paid?: string;
+  balance_due?: string;
+  extras_received?: string;
 };
+
+export type Reservation = ReservationApi;
 
 export type FinanceAnalyticsApi = {
   monthly_revenue_total: string;
@@ -227,7 +238,202 @@ export type IntegrationApi = {
   details?: string | null;
 };
 
-type TenantSummary = {
+export type ModuleKey = "core" | "users" | "inventory" | "crm" | "booking" | "finance";
+export type PermissionLevel = "none" | "read" | "write" | "admin";
+
+export type CurrentUserResponse = {
+  user: {
+    id: string;
+    email: string;
+    full_name: string;
+    system_role: string;
+    is_active: boolean;
+    is_primary_owner: boolean;
+    role: { id: string; name: string } | null;
+    date_joined: string;
+  };
+  tenant: TenantSummary | null;
+  permissions: Partial<Record<ModuleKey, PermissionLevel>>;
+};
+
+export type RegisterInput = {
+  invitation_code: string;
+  email: string;
+  full_name: string;
+  password: string;
+  tenant_name?: string;
+  tenant_subdomain?: string;
+  tenant_subdomain_join?: string;
+};
+
+export type Contact = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  type: "GUEST" | "AGENT" | "PLATFORM";
+  commission_rate: string;
+  tax_id?: string;
+  address?: string;
+  nationality?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ContactStats = {
+  contact_id: string;
+  reservations_count: number;
+  confirmed_reservations_count: number;
+  cancelled_reservations_count: number;
+  total_billed: string;
+  total_lodging_paid: string;
+  total_extras_paid: string;
+  total_refunded: string;
+  outstanding_balance: string;
+  first_check_in: string | null;
+  last_check_out: string | null;
+  nights_total: number;
+};
+
+export type QuoteResult = {
+  property_id: string;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  nightly_rate: string;
+  subtotal_amount: string;
+  cleaning_fee: string;
+  total_amount: string;
+  nights_breakdown?: unknown[];
+  applied_rule_names?: string[];
+  min_nights_required?: number;
+};
+
+export type PaymentTypeValue = "ADVANCE" | "BALANCE" | "EXTRA" | "REFUND";
+
+export type PaymentItem = {
+  id: string;
+  reservation: string;
+  reservation_label: string;
+  date: string;
+  amount: string;
+  type: PaymentTypeValue;
+  is_lodging: boolean;
+  method: "CASH" | "TRANSFER" | "OTHER";
+  reference: string;
+  notes: string;
+  recorded_by?: string | null;
+  created_at?: string;
+};
+
+export type CostCenter = {
+  id: string;
+  name: string;
+  property: string | null;
+  property_name?: string | null;
+  is_active: boolean;
+  balance: string;
+};
+
+export type ExpenseCategory =
+  | "CLEANING_COST"
+  | "MAINTENANCE"
+  | "UTILITIES"
+  | "COMMISSION"
+  | "OTHER_EXPENSE";
+
+export type AnalyticLineItem = {
+  id: string;
+  account: string;
+  account_name: string;
+  date: string;
+  amount: string;
+  category: string;
+  description: string;
+  reference_type?: string;
+  reference_id?: string | null;
+  created_at?: string;
+};
+
+export type ProfitAndLoss = {
+  income: string;
+  expenses: string;
+  net: string;
+  by_category: Record<string, string>;
+};
+
+export type TaskStatus = "PENDING" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+export type TaskType = "CLEANING" | "MAINTENANCE" | "INSPECTION" | "OTHER";
+
+export type OpsTask = {
+  id: string;
+  property: string | null;
+  property_name?: string | null;
+  reservation?: string | null;
+  type: TaskType;
+  title: string;
+  notes: string;
+  due_date: string;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
+  status: TaskStatus;
+  completed_at?: string | null;
+  created_at?: string;
+};
+
+export type MessageChannel = "EMAIL" | "WHATSAPP" | "INTERNAL";
+
+export type MessageTemplate = {
+  id: string;
+  name: string;
+  channel: MessageChannel;
+  subject: string;
+  body: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type RenderedMessage = {
+  channel: MessageChannel;
+  subject: string;
+  body: string;
+};
+
+export type InvitationCode = {
+  id: string;
+  code: string;
+  purpose: string;
+  tenant_subdomain?: string;
+  role?: { id: string; name: string } | null;
+  max_uses: number;
+  uses_count: number;
+  expires_at?: string | null;
+  is_active: boolean;
+  is_usable: boolean;
+  is_expired: boolean;
+  is_exhausted: boolean;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TenantUser = CurrentUserResponse["user"];
+
+export type GoogleCredentialResponse = {
+  configured?: boolean;
+  message?: string;
+  id?: string;
+  calendar_id?: string;
+  is_active?: boolean;
+  has_refresh_token?: boolean;
+  last_sync_at?: string | null;
+  last_sync_status?: string;
+  last_sync_error?: string;
+};
+
+export type TenantSummary = {
   id: string;
   name: string;
   subdomain: string;
@@ -264,6 +470,61 @@ class ApiError extends Error {
     this.status = status;
     this.payload = payload;
   }
+}
+
+const PERMISSION_RANK: Record<PermissionLevel, number> = {
+  none: 0,
+  read: 1,
+  write: 2,
+  admin: 3,
+};
+
+export function isAuthenticated() {
+  return Boolean(getAccessToken() && getCurrentUser());
+}
+
+export async function login(email: string, password: string) {
+  const session = await authLogin(email, password);
+  clearStoredSession();
+  return session;
+}
+
+export function logout() {
+  clearStoredSession();
+  void authLogout();
+}
+
+export async function register(input: RegisterInput) {
+  const response = await rawRequest<CurrentUserResponse & { access: string; refresh: string }>(
+    "/api/auth/register/",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
+  await authLogin(input.email, input.password);
+  clearStoredSession();
+  return response;
+}
+
+export async function fetchCurrentUser(): Promise<CurrentUserResponse> {
+  const response = await authenticatedFetch("/api/me/");
+  const payload = await parseResponseBody(response);
+
+  if (!response.ok) {
+    throw new ApiError("No fue posible cargar el usuario actual.", response.status, payload);
+  }
+
+  return payload as CurrentUserResponse;
+}
+
+export function hasPermission(
+  permissions: Partial<Record<ModuleKey, PermissionLevel>> | undefined,
+  module: ModuleKey,
+  required: PermissionLevel = "read",
+) {
+  const granted = permissions?.[module] ?? "none";
+  return PERMISSION_RANK[granted] >= PERMISSION_RANK[required];
 }
 
 let cachedSession: DemoSession | null = null;
@@ -720,10 +981,11 @@ export async function apiRequest<T>(path: string, options: RawRequestOptions = {
   return requestWithSession(path, session, options);
 }
 
-export async function fetchProperties(params: { year: number; month: number }): Promise<PropertyApi[]> {
+export async function fetchProperties(params?: { year: number; month: number }): Promise<PropertyApi[]> {
   const session = await ensureDemoSession();
+  const query = params ? `?year=${params.year}&month=${params.month}` : "";
   return requestWithSession<PropertyApi[]>(
-    `/api/tenants/${session.tenantId}/inventory/properties/?year=${params.year}&month=${params.month}`,
+    `/api/tenants/${session.tenantId}/inventory/properties/${query}`,
     session,
   );
 }
@@ -907,6 +1169,241 @@ export async function syncAllICalFeeds(): Promise<ICalSyncAllResult> {
   );
 }
 
+function compactQuery(params: Record<string, unknown> = {}) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      search.set(key, String(value));
+    }
+  }
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
+async function tenantRequest<T>(path: string, options: RawRequestOptions = {}) {
+  const session = await ensureDemoSession();
+  return requestWithSession<T>(`/api/tenants/${session.tenantId}${path}`, session, options);
+}
+
+export async function fetchContacts(params: { search?: string } = {}) {
+  return tenantRequest<Contact[]>(`/crm/contacts/${compactQuery(params)}`);
+}
+
+export async function fetchContactStats(contactId: string) {
+  return tenantRequest<ContactStats>(`/crm/contacts/${contactId}/stats/`);
+}
+
+export async function createContact(input: Partial<Contact>) {
+  return tenantRequest<Contact>("/crm/contacts/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function updateContact(contactId: string, input: Partial<Contact>) {
+  return tenantRequest<Contact>(`/crm/contacts/${contactId}/`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function deleteContact(contactId: string) {
+  return tenantRequest<void>(`/crm/contacts/${contactId}/`, { method: "DELETE" });
+}
+
+export async function createProperty(input: Partial<PropertyApi>) {
+  return tenantRequest<PropertyApi>("/inventory/properties/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function deleteProperty(propertyId: string) {
+  return tenantRequest<void>(`/inventory/properties/${propertyId}/`, {
+    method: "DELETE",
+  });
+}
+
+export async function quoteReservation(input: {
+  property_id: string;
+  check_in: string;
+  check_out: string;
+}) {
+  return tenantRequest<QuoteResult>("/booking/quote/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function checkAvailability(input: {
+  property_id: string;
+  check_in: string;
+  check_out: string;
+}) {
+  return tenantRequest<{ available: boolean; conflicting_reservation_ids: string[] }>(
+    "/booking/reservations/availability/",
+    {
+      method: "POST",
+      body: input,
+    },
+  );
+}
+
+export async function createReservation(input: {
+  property_id: string;
+  guest_id: string;
+  agent_id?: string | null;
+  check_in: string;
+  check_out: string;
+  status?: string;
+}) {
+  return tenantRequest<Reservation>("/booking/reservations/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function fetchPayments(params: Record<string, unknown> = {}) {
+  return tenantRequest<PaymentItem[]>(`/finance/payments/${compactQuery(params)}`);
+}
+
+export async function createPayment(input: {
+  reservation_id: string;
+  date: string;
+  amount: string;
+  type: PaymentTypeValue;
+  method: PaymentItem["method"];
+  reference?: string;
+  notes?: string;
+}) {
+  return tenantRequest<PaymentItem>("/finance/payments/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function deletePayment(paymentId: string) {
+  return tenantRequest<void>(`/finance/payments/${paymentId}/`, { method: "DELETE" });
+}
+
+export async function fetchCostCenters() {
+  return tenantRequest<CostCenter[]>("/finance/cost-centers/");
+}
+
+export async function createCostCenter(input: { name: string; property?: string | null }) {
+  return tenantRequest<CostCenter>("/finance/cost-centers/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function fetchProfitAndLoss(params: {
+  account_id?: string;
+  from_date?: string;
+  to_date?: string;
+}) {
+  return tenantRequest<ProfitAndLoss>(`/finance/profit-and-loss/${compactQuery(params)}`);
+}
+
+export async function fetchAnalyticLines(params: Record<string, unknown> = {}) {
+  return tenantRequest<AnalyticLineItem[]>(
+    `/finance/analytic-lines/${compactQuery(params)}`,
+  );
+}
+
+export async function createExpense(input: {
+  account_id: string;
+  date: string;
+  amount: string;
+  category: ExpenseCategory;
+  description?: string;
+}) {
+  return tenantRequest<AnalyticLineItem>("/finance/expenses/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function fetchTasks(params: Record<string, unknown> = {}) {
+  return tenantRequest<OpsTask[]>(`/ops/tasks/${compactQuery(params)}`);
+}
+
+export async function createTask(input: Partial<OpsTask>) {
+  return tenantRequest<OpsTask>("/ops/tasks/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function updateTask(taskId: string, input: Partial<OpsTask>) {
+  return tenantRequest<OpsTask>(`/ops/tasks/${taskId}/`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export async function completeTask(taskId: string) {
+  return tenantRequest<OpsTask>(`/ops/tasks/${taskId}/complete/`, {
+    method: "POST",
+  });
+}
+
+export async function fetchMessageTemplates() {
+  return tenantRequest<MessageTemplate[]>("/ops/templates/");
+}
+
+export async function createMessageTemplate(input: {
+  name: string;
+  channel: MessageChannel;
+  subject?: string;
+  body: string;
+}) {
+  return tenantRequest<MessageTemplate>("/ops/templates/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function deleteMessageTemplate(templateId: string) {
+  return tenantRequest<void>(`/ops/templates/${templateId}/`, { method: "DELETE" });
+}
+
+export async function renderMessage(templateId: string, reservationId: string) {
+  return tenantRequest<RenderedMessage>("/ops/render-message/", {
+    method: "POST",
+    body: { template_id: templateId, reservation_id: reservationId },
+  });
+}
+
+export async function fetchTenantUsers() {
+  const current = await fetchCurrentUser();
+  if (!current.tenant?.id) {
+    return [];
+  }
+  return tenantRequest<TenantUser[]>("/users/");
+}
+
+export async function fetchInvitationCodes() {
+  return tenantRequest<InvitationCode[]>("/invitation-codes/");
+}
+
+export async function createInvitationCode(input: {
+  max_uses?: number;
+  expires_at?: string | null;
+  notes?: string;
+  role_id?: string | null;
+}) {
+  return tenantRequest<InvitationCode>("/invitation-codes/", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export async function deactivateInvitationCode(codeId: string) {
+  return tenantRequest<void>(`/invitation-codes/${codeId}/`, { method: "DELETE" });
+}
+
+
 export function shiftMonth(year: number, month: number, delta: number) {
   const shifted = new Date(year, month - 1 + delta, 1);
   return {
@@ -928,4 +1425,101 @@ export function getMonthDateRange(year: number, month: number) {
     startIso: formatDateForApi(start),
     endIso: formatDateForApi(end),
   };
+}
+
+async function requestBlobWithSession(
+  path: string,
+  session: DemoSession,
+  allowRefresh = true,
+): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: {
+      Authorization: `Bearer ${session.access}`,
+      "X-Tenant-ID": session.tenantId,
+    },
+  });
+
+  if (allowRefresh && response.status === 401) {
+    const refreshed = await refreshSession(session);
+    return requestBlobWithSession(path, refreshed, false);
+  }
+
+  if (!response.ok) {
+    const payload = await parseResponseBody(response);
+    throw new ApiError("No fue posible descargar el archivo.", response.status, payload);
+  }
+
+  return response.blob();
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function downloadReservationVoucher(
+  _tenantId: string,
+  reservationId: string,
+) {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/booking/reservations/${reservationId}/voucher-pdf/`,
+    session,
+  );
+  triggerDownload(blob, `voucher-${reservationId}.pdf`);
+}
+
+export async function downloadPropertyReport(_tenantId: string, reportId: string) {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/finance/profitability/${reportId}/download/`,
+    session,
+  );
+  triggerDownload(blob, `report-${reportId}.pdf`);
+}
+
+export async function downloadPaymentsXlsx() {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/finance/reports/payments.xlsx`,
+    session,
+  );
+  triggerDownload(blob, "payments.xlsx");
+}
+
+export async function downloadPnLXlsx(year: number) {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/finance/reports/pnl.xlsx?year=${year}`,
+    session,
+  );
+  triggerDownload(blob, `pnl-${year}.xlsx`);
+}
+
+export async function downloadOccupancyXlsx(year: number) {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/finance/reports/occupancy.xlsx?year=${year}`,
+    session,
+  );
+  triggerDownload(blob, `occupancy-${year}.xlsx`);
+}
+
+export async function downloadVoucherPdf(reservationId: string) {
+  const session = await ensureDemoSession();
+  const blob = await requestBlobWithSession(
+    `/api/tenants/${session.tenantId}/ops/voucher/${reservationId}.pdf`,
+    session,
+  );
+  triggerDownload(blob, `voucher-${reservationId}.pdf`);
 }

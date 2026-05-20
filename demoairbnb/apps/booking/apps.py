@@ -2,9 +2,9 @@ from django.apps import AppConfig
 
 
 class BookingConfig(AppConfig):
-    default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.booking"
-    label = "booking"
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'apps.booking'
+    label = 'booking'
 
     def ready(self) -> None:
         from . import signals  # noqa: F401

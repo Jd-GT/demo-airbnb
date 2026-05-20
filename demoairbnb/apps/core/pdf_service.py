@@ -37,7 +37,7 @@ def generate_reservation_voucher_pdf(
 ) -> bytes:
     """
     Generate a professional reservation voucher PDF.
-    
+
     Args:
         guest_name: Full name of the guest
         property_name: Name of the property
@@ -50,13 +50,13 @@ def generate_reservation_voucher_pdf(
         confirmation_code: Reservation confirmation code
         amenities: List of property amenities
         cancellation_policy: Cancellation policy description
-    
+
     Returns:
         PDF content as bytes
     """
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
-    
+
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -67,7 +67,7 @@ def generate_reservation_voucher_pdf(
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    
+
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading2'],
@@ -76,7 +76,7 @@ def generate_reservation_voucher_pdf(
         spaceAfter=8,
         fontName='Helvetica-Bold'
     )
-    
+
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
@@ -84,18 +84,18 @@ def generate_reservation_voucher_pdf(
         textColor=DARK_COLOR,
         spaceAfter=4,
     )
-    
+
     # Build content
     elements = []
-    
+
     # Header
     elements.append(Paragraph("VOUCHER DE RESERVA", title_style))
     elements.append(Spacer(1, 0.15*inch))
-    
+
     # Confirmation code box
     conf_data = [
-        [Paragraph(f"<b>CÓDIGO: {confirmation_code}</b>", 
-                  ParagraphStyle('ConfCode', parent=styles['Normal'], fontSize=11, 
+        [Paragraph(f"<b>CÓDIGO: {confirmation_code}</b>",
+                  ParagraphStyle('ConfCode', parent=styles['Normal'], fontSize=11,
                                textColor=GOLD_COLOR, alignment=TA_CENTER))]
     ]
     conf_table = Table(conf_data, colWidths=[6*inch])
@@ -107,7 +107,7 @@ def generate_reservation_voucher_pdf(
     ]))
     elements.append(conf_table)
     elements.append(Spacer(1, 0.2*inch))
-    
+
     # Guest and property info
     elements.append(Paragraph("INFORMACIÓN DEL HUÉSPED", heading_style))
     guest_data = [
@@ -126,7 +126,7 @@ def generate_reservation_voucher_pdf(
     ]))
     elements.append(guest_table)
     elements.append(Spacer(1, 0.15*inch))
-    
+
     # Stay details
     elements.append(Paragraph("DETALLES DE ESTADÍA", heading_style))
     stay_data = [
@@ -145,15 +145,15 @@ def generate_reservation_voucher_pdf(
     ]))
     elements.append(stay_table)
     elements.append(Spacer(1, 0.15*inch))
-    
+
     # Pricing breakdown
     elements.append(Paragraph("RESUMEN DE PAGO", heading_style))
     price_data = [
         ["Concepto", "Valor"],
         [f"Subtotal ({nights} noches)", f"${float(subtotal):,.2f}"],
         ["Tarifa de limpieza", f"${float(cleaning_fee):,.2f}"],
-        [Paragraph("<b>TOTAL</b>", normal_style), 
-         Paragraph(f"<b>${float(total_amount):,.2f}</b>", 
+        [Paragraph("<b>TOTAL</b>", normal_style),
+         Paragraph(f"<b>${float(total_amount):,.2f}</b>",
                   ParagraphStyle('Total', parent=normal_style, textColor=GOLD_COLOR))],
     ]
     price_table = Table(price_data, colWidths=[3.5*inch, 2.5*inch])
@@ -170,18 +170,18 @@ def generate_reservation_voucher_pdf(
     ]))
     elements.append(price_table)
     elements.append(Spacer(1, 0.15*inch))
-    
+
     # Amenities if provided
     if amenities:
         elements.append(Paragraph("SERVICIOS Y COMODIDADES", heading_style))
         amenities_text = "<br/>".join([f"• {a}" for a in amenities])
         elements.append(Paragraph(amenities_text, normal_style))
         elements.append(Spacer(1, 0.15*inch))
-    
+
     # Cancellation policy
     elements.append(Paragraph("POLÍTICA DE CANCELACIÓN", heading_style))
     elements.append(Paragraph(cancellation_policy, normal_style))
-    
+
     # Footer
     elements.append(Spacer(1, 0.3*inch))
     footer_style = ParagraphStyle(
@@ -192,7 +192,7 @@ def generate_reservation_voucher_pdf(
         alignment=TA_CENTER
     )
     elements.append(Paragraph(f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", footer_style))
-    
+
     # Build PDF
     doc.build(elements)
     return buffer.getvalue()
@@ -211,7 +211,7 @@ def generate_property_report_pdf(
 ) -> bytes:
     """
     Generate a professional property profitability report PDF.
-    
+
     Args:
         property_name: Name of the property
         period: Period description (e.g., "Enero 2026")
@@ -222,13 +222,13 @@ def generate_property_report_pdf(
         avg_daily_rate: Average daily rate (ADR)
         operating_expenses: Optional operating expenses
         net_profit: Optional net profit
-    
+
     Returns:
         PDF content as bytes
     """
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
-    
+
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
         'ReportTitle',
@@ -239,7 +239,7 @@ def generate_property_report_pdf(
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    
+
     subtitle_style = ParagraphStyle(
         'Subtitle',
         parent=styles['Normal'],
@@ -248,7 +248,7 @@ def generate_property_report_pdf(
         alignment=TA_CENTER,
         spaceAfter=12,
     )
-    
+
     heading_style = ParagraphStyle(
         'ReportHeading',
         parent=styles['Heading2'],
@@ -257,7 +257,7 @@ def generate_property_report_pdf(
         spaceAfter=8,
         fontName='Helvetica-Bold'
     )
-    
+
     normal_style = ParagraphStyle(
         'ReportNormal',
         parent=styles['Normal'],
@@ -265,17 +265,17 @@ def generate_property_report_pdf(
         textColor=DARK_COLOR,
         spaceAfter=4,
     )
-    
+
     elements = []
-    
+
     # Header
     elements.append(Paragraph("REPORTE DE RENTABILIDAD", title_style))
     elements.append(Paragraph(f"{property_name} - {period}", subtitle_style))
     elements.append(Spacer(1, 0.2*inch))
-    
+
     # KPI Summary
     elements.append(Paragraph("INDICADORES CLAVE", heading_style))
-    
+
     kpi_data = [
         ["Métrica", "Valor"],
         ["Ingresos Totales", f"${float(total_revenue):,.2f}"],
@@ -284,13 +284,13 @@ def generate_property_report_pdf(
         ["Número de Reservas", str(num_reservations)],
         ["ADR (Tarifa Diaria Promedio)", f"${float(avg_daily_rate):,.2f}"],
     ]
-    
+
     if operating_expenses:
         kpi_data.append(["Gastos Operativos", f"${float(operating_expenses):,.2f}"])
-    
+
     if net_profit:
         kpi_data.append(["Utilidad Neta", f"${float(net_profit):,.2f}"])
-    
+
     kpi_table = Table(kpi_data, colWidths=[3.5*inch, 2.5*inch])
     kpi_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), DARK_COLOR),
@@ -306,27 +306,27 @@ def generate_property_report_pdf(
     ]))
     elements.append(kpi_table)
     elements.append(Spacer(1, 0.3*inch))
-    
+
     # Analysis
     elements.append(Paragraph("ANÁLISIS", heading_style))
     analysis_text = f"""
-    <b>Ocupación:</b> Con una tasa de ocupación del {occupancy_rate:.1f}%, la propiedad ha generado 
+    <b>Ocupación:</b> Con una tasa de ocupación del {occupancy_rate:.1f}%, la propiedad ha generado
     ${float(total_revenue):,.2f} en ingresos durante el período.<br/><br/>
-    
-    <b>Desempeño de Reservas:</b> Se registraron {num_reservations} reservas con un total de 
-    {nights_booked} noches reservadas, resultando en un ADR (Tarifa Diaria Promedio) de 
+
+    <b>Desempeño de Reservas:</b> Se registraron {num_reservations} reservas con un total de
+    {nights_booked} noches reservadas, resultando en un ADR (Tarifa Diaria Promedio) de
     ${float(avg_daily_rate):,.2f}.<br/><br/>
     """
-    
+
     if operating_expenses and net_profit:
         profit_margin = (float(net_profit) / float(total_revenue) * 100) if total_revenue > 0 else 0
         analysis_text += f"""
-        <b>Rentabilidad:</b> Después de gastos operativos de ${float(operating_expenses):,.2f}, 
+        <b>Rentabilidad:</b> Después de gastos operativos de ${float(operating_expenses):,.2f},
         la utilidad neta es ${float(net_profit):,.2f}, representando un margen de {profit_margin:.1f}%.
         """
-    
+
     elements.append(Paragraph(analysis_text, normal_style))
-    
+
     # Footer
     elements.append(Spacer(1, 0.2*inch))
     footer_style = ParagraphStyle(
@@ -340,7 +340,7 @@ def generate_property_report_pdf(
         f"Reporte generado: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Confidencial",
         footer_style
     ))
-    
+
     # Build PDF
     doc.build(elements)
     return buffer.getvalue()
@@ -348,13 +348,13 @@ def generate_property_report_pdf(
 
 def html_to_pdf(html_string: str) -> bytes:
     """
-    Legacy function for compatibility. 
+    Legacy function for compatibility.
     Note: ReportLab doesn't directly support HTML conversion.
     Use generate_reservation_voucher_pdf or generate_property_report_pdf instead.
-    
+
     Args:
         html_string: HTML content (ignored, for backward compatibility)
-    
+
     Returns:
         Empty PDF bytes
     """

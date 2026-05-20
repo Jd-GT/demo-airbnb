@@ -1,33 +1,30 @@
 "use client";
 
 import AppShell from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
 import { ErrorCard, LoadingCard } from "@/components/page-feedback";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useAsyncData } from "@/hooks/use-async-data";
-import { createProperty, fetchProperties, toNumber } from "@/lib/api";
+import {
+  createProperty,
+  deleteProperty,
+  fetchProperties,
+  toNumber,
+} from "@/lib/api";
 import { motion } from "framer-motion";
 import {
   Bath,
   BedDouble,
-  Building2,
   DollarSign,
-  Eye,
   Loader2,
   MapPin,
   MoreHorizontal,
-  Pencil,
   Plus,
   Search,
+  Trash2,
   Users,
+  X,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type PropertyRow = {
   id: string;
@@ -41,24 +38,6 @@ type PropertyRow = {
   floor: string;
   rooms: number;
   bathrooms: number;
-};
-
-type PropertyFormState = {
-  name: string;
-  address: string;
-  capacityAdults: string;
-  capacityKids: string;
-  basePrice: string;
-  cleaningFee: string;
-};
-
-const initialPropertyForm: PropertyFormState = {
-  name: "",
-  address: "",
-  capacityAdults: "2",
-  capacityKids: "0",
-  basePrice: "",
-  cleaningFee: "0",
 };
 
 const containerVariants = {
@@ -115,39 +94,16 @@ function formatCOP(value: number) {
   }).format(value);
 }
 
-function normalizeMoneyInput(value: string) {
-  const compact = value.trim().replace(/\s/g, "");
-  if (!compact) {
-    return null;
-  }
-  const normalized = compact.includes(",")
-    ? compact.replace(/\./g, "").replace(",", ".")
-    : /\.\d{1,2}$/.test(compact)
-      ? compact.replace(/,/g, "")
-      : compact.replace(/[.,]/g, "");
-  const amount = Number(normalized);
-  if (!Number.isFinite(amount) || amount < 0) {
-    return null;
-  }
-  return amount.toFixed(2);
-}
-
-function parseCapacity(value: string) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
 export default function PropiedadesPage() {
+  const { can } = useAuth();
+  const canWrite = can("inventory", "write");
+
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">(
     "all",
   );
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [propertyForm, setPropertyForm] =
-    useState<PropertyFormState>(initialPropertyForm);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [savingProperty, setSavingProperty] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -184,7 +140,7 @@ export default function PropiedadesPage() {
     });
   }, [currentMonth, currentYear]);
 
-  const properties = useMemo(() => data ?? [], [data]);
+  const properties = data ?? [];
 
   const filtered = useMemo(
     () =>
@@ -207,60 +163,6 @@ export default function PropiedadesPage() {
     0,
   );
 
-  const updatePropertyForm = (field: keyof PropertyFormState, value: string) => {
-    setPropertyForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleCreateProperty = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setCreateError(null);
-
-    const name = propertyForm.name.trim();
-    const address = propertyForm.address.trim();
-    const capacityAdults = parseCapacity(propertyForm.capacityAdults);
-    const capacityKids = parseCapacity(propertyForm.capacityKids);
-    const basePrice = normalizeMoneyInput(propertyForm.basePrice);
-    const cleaningFee = normalizeMoneyInput(propertyForm.cleaningFee);
-
-    if (!name || !address) {
-      setCreateError("Completa el nombre y la ubicacion de la propiedad.");
-      return;
-    }
-
-    if (capacityAdults === null || capacityAdults < 1 || capacityKids === null) {
-      setCreateError("La capacidad debe tener al menos un adulto y valores validos.");
-      return;
-    }
-
-    if (basePrice === null || cleaningFee === null) {
-      setCreateError("Ingresa tarifas validas. Usa solo numeros positivos.");
-      return;
-    }
-
-    setSavingProperty(true);
-    try {
-      await createProperty({
-        name,
-        address,
-        capacity_adults: capacityAdults,
-        capacity_kids: capacityKids,
-        base_price: basePrice,
-        cleaning_fee: cleaningFee,
-      });
-      setPropertyForm(initialPropertyForm);
-      setCreateOpen(false);
-      reload();
-    } catch (caughtError) {
-      setCreateError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "No fue posible crear la propiedad.",
-      );
-    } finally {
-      setSavingProperty(false);
-    }
-  };
-
   return (
     <AppShell>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
@@ -273,172 +175,26 @@ export default function PropiedadesPage() {
               Gestion de tu cartera de alojamientos
             </p>
           </div>
-          <button
-            onClick={() => {
-              setCreateError(null);
-              setCreateOpen(true);
-            }}
-            className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-gold-dark"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva Propiedad
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-gold-dark"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva Propiedad
+            </button>
+          )}
         </div>
 
-        <Dialog
-          open={createOpen}
-          onOpenChange={(open) => {
-            if (savingProperty) {
-              return;
-            }
-            setCreateOpen(open);
-            if (!open) {
-              setCreateError(null);
-            }
-          }}
-        >
-          <DialogContent className="border-gold/15 bg-card text-foreground sm:max-w-2xl">
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10 text-gold">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <DialogTitle>Nueva propiedad</DialogTitle>
-                  <DialogDescription>
-                    Registra el alojamiento en el inventario operativo.
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <form onSubmit={handleCreateProperty} className="space-y-5">
-              {createError ? (
-                <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {createError}
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Nombre
-                  </span>
-                  <input
-                    value={propertyForm.name}
-                    onChange={(event) => updatePropertyForm("name", event.target.value)}
-                    disabled={savingProperty}
-                    placeholder="Beach House"
-                    className="h-10 w-full rounded-lg border border-border bg-muted/30 px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Tarifa base
-                  </span>
-                  <input
-                    value={propertyForm.basePrice}
-                    onChange={(event) =>
-                      updatePropertyForm("basePrice", event.target.value)
-                    }
-                    disabled={savingProperty}
-                    inputMode="decimal"
-                    placeholder="420000"
-                    className="h-10 w-full rounded-lg border border-border bg-muted/30 px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                  />
-                </label>
-              </div>
-
-              <label className="space-y-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Ubicacion
-                </span>
-                <textarea
-                  value={propertyForm.address}
-                  onChange={(event) => updatePropertyForm("address", event.target.value)}
-                  disabled={savingProperty}
-                  rows={3}
-                  placeholder="Isla de Tierra Bomba, Cartagena"
-                  className="w-full resize-none rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                />
-              </label>
-
-              <div className="grid gap-4 sm:grid-cols-3">
-                <label className="space-y-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Adultos
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={propertyForm.capacityAdults}
-                    onChange={(event) =>
-                      updatePropertyForm("capacityAdults", event.target.value)
-                    }
-                    disabled={savingProperty}
-                    className="h-10 w-full rounded-lg border border-border bg-muted/30 px-3 text-sm text-foreground outline-none transition-colors focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Ninos
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={propertyForm.capacityKids}
-                    onChange={(event) =>
-                      updatePropertyForm("capacityKids", event.target.value)
-                    }
-                    disabled={savingProperty}
-                    className="h-10 w-full rounded-lg border border-border bg-muted/30 px-3 text-sm text-foreground outline-none transition-colors focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Limpieza
-                  </span>
-                  <input
-                    value={propertyForm.cleaningFee}
-                    onChange={(event) =>
-                      updatePropertyForm("cleaningFee", event.target.value)
-                    }
-                    disabled={savingProperty}
-                    inputMode="decimal"
-                    placeholder="120000"
-                    className="h-10 w-full rounded-lg border border-border bg-muted/30 px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-gold/40 focus:ring-1 focus:ring-gold/20"
-                  />
-                </label>
-              </div>
-
-              <DialogFooter>
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(false)}
-                  disabled={savingProperty}
-                  className="rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingProperty}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-gold-dark disabled:opacity-60"
-                >
-                  {savingProperty ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Guardar propiedad
-                </button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {showModal && (
+          <NewPropertyModal
+            onClose={() => setShowModal(false)}
+            onCreated={() => {
+              setShowModal(false);
+              reload();
+            }}
+          />
+        )}
 
         {loading && !data ? (
           <LoadingCard
@@ -635,33 +391,49 @@ export default function PropiedadesPage() {
                       exit={{ height: 0, opacity: 0 }}
                       className="flex gap-2 px-6 pb-4"
                     >
-                      <button className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
-                        <Eye className="h-3 w-3" />
+                      <a
+                        href="/calendario"
+                        className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
                         Ver Calendario
-                      </button>
-                      <button className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50">
+                      </a>
+                      <a
+                        href="/contabilidad"
+                        className="flex items-center gap-1.5 rounded-md bg-muted/30 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
+                      >
                         <DollarSign className="h-3 w-3" />
-                        Ver Finanzas
-                      </button>
-                      <button className="flex items-center gap-1.5 rounded-md bg-gold/10 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/20">
-                        <Pencil className="h-3 w-3" />
-                        Editar
-                      </button>
+                        Ver P&amp;L
+                      </a>
+                      {canWrite && (
+                        <button
+                          onClick={async () => {
+                            if (
+                              !confirm(
+                                `¿Eliminar "${property.name}"? Esta acción no se puede deshacer.`,
+                              )
+                            )
+                              return;
+                            try {
+                              await deleteProperty(property.id);
+                              reload();
+                            } catch (err) {
+                              alert(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Error eliminando",
+                              );
+                            }
+                          }}
+                          className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Eliminar
+                        </button>
+                      )}
                     </motion.div>
                   ) : null}
                 </motion.div>
               ))}
-
-              {filtered.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <p className="text-sm font-medium text-foreground">
-                    No hay propiedades para mostrar
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Crea una propiedad o ajusta los filtros activos.
-                  </p>
-                </div>
-              ) : null}
             </motion.div>
           </>
         ) : null}
@@ -669,3 +441,173 @@ export default function PropiedadesPage() {
     </AppShell>
   );
 }
+
+function NewPropertyModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [adults, setAdults] = useState(2);
+  const [kids, setKids] = useState(0);
+  const [basePrice, setBasePrice] = useState("");
+  const [cleaningFee, setCleaningFee] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name || !address || !basePrice) {
+      setError("Nombre, dirección y precio base son obligatorios.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await createProperty({
+        name: name.trim(),
+        address: address.trim(),
+        capacity_adults: adults,
+        capacity_kids: kids,
+        base_price: basePrice,
+        cleaning_fee: cleaningFee || "0",
+      });
+      onCreated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error creando propiedad");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-lg rounded-xl p-6"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-serif text-xl font-semibold">Nueva propiedad</h2>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="mb-4 text-xs text-muted-foreground">
+          Al guardar se crea automáticamente un{" "}
+          <strong>centro de costo</strong> para esta propiedad. Lo podrás usar
+          en /contabilidad.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nombre (ej: Apto 301 - Vista Mar)"
+            className={inputClass}
+            required
+          />
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Dirección completa"
+            rows={2}
+            className={inputClass}
+            required
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Adultos máx.
+              <input
+                type="number"
+                min={1}
+                value={adults}
+                onChange={(e) => setAdults(parseInt(e.target.value, 10) || 1)}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Niños máx.
+              <input
+                type="number"
+                min={0}
+                value={kids}
+                onChange={(e) => setKids(parseInt(e.target.value, 10) || 0)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Precio base por noche
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={basePrice}
+                onChange={(e) => setBasePrice(e.target.value)}
+                placeholder="120.00"
+                className={inputClass}
+                required
+              />
+            </label>
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Tarifa de limpieza
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={cleaningFee}
+                onChange={(e) => setCleaningFee(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          {error && (
+            <p className="rounded-lg bg-red-500/10 p-2 text-xs text-red-400">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-foreground hover:bg-zinc-800"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-gold/90 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              Crear
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+const inputClass =
+  "w-full rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-foreground focus:border-gold/50 focus:outline-none";

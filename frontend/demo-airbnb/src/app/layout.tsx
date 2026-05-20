@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond } from "next/font/google";
-import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
-import "../App.css";
+import { AuthProvider } from "@/components/auth-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,7 +16,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Emilamar Alojamientos - Property Manager",
+  title: "Demo Airbnb PMS - Property Manager",
   description: "Gestión centralizada de alojamientos turísticos",
 };
 
@@ -29,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className={`${inter.variable} ${cormorant.variable} antialiased font-sans`}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

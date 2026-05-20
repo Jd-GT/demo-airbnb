@@ -14,28 +14,28 @@ from apps.inventory.models import Property
 class TestReservationFilters(APITestCase):
     def setUp(self):
         self.tenant, self.owner = create_tenant_with_owner(
-            name="Reservation Tenant",
-            subdomain="reservation-tenant",
-            owner_email="owner@reservation.com",
-            owner_password="ownerpass123",
-            owner_full_name="Reservation Owner",
+            name='Reservation Tenant',
+            subdomain='reservation-tenant',
+            owner_email='owner@reservation.com',
+            owner_password='ownerpass123',
+            owner_full_name='Reservation Owner',
         )
         self.client.force_authenticate(self.owner)
 
         self.property = Property.objects.create(
             tenant=self.tenant,
-            name="Ocean View",
-            address="Beach 123",
+            name='Ocean View',
+            address='Beach 123',
             capacity_adults=4,
             capacity_kids=2,
-            base_price="200.00",
-            cleaning_fee="50.00",
+            base_price='200.00',
+            cleaning_fee='50.00',
         )
         self.guest = Contact.objects.create(
             tenant=self.tenant,
-            name="Reservation Guest",
+            name='Reservation Guest',
             type=ContactType.GUEST,
-            email="guest@reservation.com",
+            email='guest@reservation.com',
         )
 
         create_reservation(
@@ -57,10 +57,10 @@ class TestReservationFilters(APITestCase):
 
     def test_reservation_list_filters_by_range_and_returns_names(self):
         response = self.client.get(
-            f"/api/tenants/{self.tenant.id}/booking/reservations/?from=2026-03-01&to=2026-04-01"
+            f'/api/tenants/{self.tenant.id}/booking/reservations/?from=2026-03-01&to=2026-04-01'
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["property_name"], "Ocean View")
-        self.assertEqual(response.data[0]["guest_name"], "Reservation Guest")
+        self.assertEqual(response.data[0]['property_name'], 'Ocean View')
+        self.assertEqual(response.data[0]['guest_name'], 'Reservation Guest')

@@ -1,152 +1,111 @@
 # Historias de Usuario y Épicas (SaaS PMS)
 
-Basado en todos los dolores actuales (manejo en Excel, control manual de pagos, falta de reportes claros, y necesidad de automatización) y en la arquitectura diseñada (Multi-tenant, Monolito Modular), aquí están definidos los requerimientos en formato Ágil.
+> **Notas de scope (actualizadas 2026-05-13)**
+>
+> - **No se integran pasarelas de pago.** Los pagos son **manuales**: el cliente paga
+>   por WhatsApp/transferencia/efectivo y el operador los registra a posteriori
+>   en el sistema. Cualquier US que mencionara Stripe, PayPal o "pago en línea"
+>   fue eliminada. Sólo registramos los pagos que ya ocurrieron por fuera.
+> - **Acceso por código.** Nadie puede crear una empresa nueva en la plataforma
+>   sin un `CREATE_TENANT` invitation code emitido por el super-admin.
+>   Igualmente, nadie se une a una empresa existente sin un `JOIN_TENANT` code
+>   emitido por el dueño/admin de esa empresa. Ver Épica 0.
+> - **Integraciones externas:** sólo Google Calendar queda como integración
+>   real planeada. Airbnb / Booking / Stripe / Mailchimp se eliminaron del
+>   producto (eran mocks de UI sin backend real).
+
+---
+
+## ÉPICA 0: Acceso Controlado a la Plataforma (Plataforma SaaS)
+**Descripción:** Como Operador del SaaS, necesito controlar quién entra a la plataforma para evitar que cualquier persona cree una cuenta sin autorización.
+
+*   [x] **US-0.1: Modelo de InvitationCode con propósito CREATE_TENANT / JOIN_TENANT**
+*   [x] **US-0.2: Eliminar el endpoint público `POST /api/tenants/`**
+*   [x] **US-0.3: Bloquear el flujo de signup público sin código válido**
+*   [x] **US-0.4: Django Admin para que el super-admin emita y revoque CREATE_TENANT codes y active/desactive tenants**
+*   [x] **US-0.5: Endpoint REST `/tenants/{id}/invitation-codes/` para que los OWNER emitan JOIN_TENANT codes**
+*   [x] **US-0.6: Comando CLI `manage.py issue_invite_code` para super-admin**
+*   [x] **US-0.7: Tenant.is_active enforced por TenantResolutionMiddleware (un tenant inactivo no puede operar)**
 
 ---
 
 ## ÉPICA 1: Gestión Centralizada del Inventario y CRM
 **Descripción:** Como Host, necesito dejar de usar Excel para gestionar mis propiedades, tarifas y la base de datos de mis clientes, para tener una única fuente de verdad accesible desde cualquier lugar.
 
-*   [x] **US-1.1: Creación de Propiedades**
+*   [x] **US-1.1: Creación de Propiedades** — backend CRUD listo (`/inventory/properties/`). Falta el formulario en el frontend (sólo hay listado).
     *   **Como** Administrador del Tenant.
     *   **Quiero** poder registrar una nueva propiedad llenando su nombre, dirección, capacidad (adultos/niños), tarifa base y tarifa de limpieza.
     *   **Para** tener mi inventario digitalizado y listo para recibir reservas.
-*   [x] **US-1.1.1: Agregar usuarios con x permisos a cada tenant**
+*   [x] **US-1.1.1: Agregar usuarios con permisos a cada tenant** — backend listo (`TenantRole` + `TenantUserViewSet` con RBAC). Falta UI de matriz de permisos.
     *   **Como** Administrador del Tenant.
     *   **Quiero** poder crear nuevos usuarios para mi inmobiliaria y asignarles permisos específicos (Ej: solo lectura, editor de reservas, administrador total).
     *   **Para** que mi equipo pueda colaborar en la plataforma sin compartir contraseñas ni dar acceso irrestricto a todo el sistema.
-*   [x] **US-1.2: Gestión de Comodidades (Amenities)**
+*   [x] **US-1.2: Gestión de Comodidades (Amenities)** — backend CRUD listo. Falta UI.
     *   **Como** Staff/Administrador.
     *   **Quiero** asignar características (WiFi, Piscina, AC) a cada propiedad.
     *   **Para** que la información detallada esté disponible al enviar cotizaciones a los clientes.
-*   [x] **US-1.3: Base de Datos Única de Contactos**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** crear y buscar contactos (Huéspedes, Comisionistas, Plataformas) por nombre, teléfono o email en un solo lugar.
-    *   **Para** identificar rápidamente a clientes recurrentes y no duplicar información.
-*   [x] **US-1.4: Pipeline de Ventas (Leads / Cotizaciones)**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** registrar una consulta (Lead) de WhatsApp, indicando el cliente, fechas deseadas y el valor esperado, agrupándolos por estado (Nuevo, Cotizado, Ganado).
-    *   **Para** hacer seguimiento a las ventas que aún no son reservas confirmadas y no perder clientes potenciales.
-*   **US-1.5: Tarifas Dinámicas por Temporada**
-    *   Nota Sprint 1: Se implementó cotización base (`/quote`) con tarifa base + limpieza, pero no reglas dinámicas de temporada.
-    *   **Como** Administrador.
-    *   **Quiero** crear reglas de precios (Ej: "Temporada Alta: +20% del 15 de Dic al 15 de Ene") aplicables a propiedades específicas.
-    *   **Para** no tener que calcular o recordar manualmente a cuánto debo vender un apartamento en diferentes fechas.
+*   [x] **US-1.3: Base de Datos Única de Contactos** — backend CRUD + búsqueda por nombre/email/phone. Falta UI.
+*   [x] **US-1.4: Pipeline de Ventas (Leads / Cotizaciones)** — backend CRUD listo (`/crm/leads/`). Falta UI tipo Kanban.
+*   [x] **US-1.5: Tarifas Dinámicas por Temporada** — implementada en Sprint 2. Modelo `PriceRule` con `is_percent`, `min_nights`, `priority`, M2M opcional a propiedades. `calculate_quote()` itera por noche aplicando la regla ganadora. Endpoint `/booking/price-rules/` CRUD.
 
 ---
 
 ## ÉPICA 2: Motor de Reservas y Calendario Unificado
 **Descripción:** Como Host, necesito un sistema que cruce la disponibilidad y me permita crear reservas completas (con sus cobros adicionales y comisiones) sin riesgo de "overbooking".
 
-*   **US-2.1: Calendario General de Ocupación**
-    *   **Como** Staff/Agente de Reservas.
-    *   **Quiero** visualizar un calendario tipo Gantt que me muestre todas mis propiedades y las reservas bloqueando los días.
-    *   **Para** saber de un vistazo qué está disponible para vender hoy o el próximo mes.
-*   [x] **US-2.2: Creación de Reserva Manual (Directa)**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** crear una reserva seleccionando Propiedad, Cliente, Fechas de Check-in/out, la cual calcule automáticamente el costo total basado en las reglas de precio.
-    *   **Para** formalizar una venta directa (WhatsApp/Referido) en el sistema.
-*   [x] **US-2.3: Validación de Overbooking**
-    *   **Como** Sistema (Backend).
-    *   **Quiero** rechazar cualquier intento de crear o mover una reserva si las fechas interfieren con otra reserva confirmada en la misma propiedad.
-    *   **Para** garantizar que nunca se le venda el mismo apartamento a dos personas en la misma fecha.
-*   **US-2.4: Desglose de Cobros (Líneas de Reserva)**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** que al crear una reserva se autogeneren las líneas de cobro (Ej: 3 Noches $X, 1 Tarifa Limpieza $Y) y poder agregar cargos extras manuales (Ej: Desayuno).
-    *   **Para** tener claridad financiera de qué se le está cobrando al huésped.
-*   **US-2.5: Asignación de Comisiones a Intermediarios**
-    *   **Como** Administrador.
-    *   **Quiero** vincular un Agente Comisionista (Ej: Daniel) a una reserva, calculando automáticamente su comisión sobre el subtotal del alojamiento.
-    *   **Para** saber exactamente cuánto le debo pagar a mis vendedores a fin de mes.
-*   **US-2.6: Sincronización Básica iCal (MVP)**
-    *   **Como** Sistema (Integrador).
-    *   **Quiero** importar periódicamente calendarios iCal de Airbnb/Booking para crear "Bloqueos" en mi calendario.
-    *   **Para** evitar vender por WhatsApp fechas que ya se vendieron en las OTAs (Online Travel Agencies).
+*   [ ] **US-2.1: Calendario General de Ocupación** — el frontend tiene una vista mensual de sólo lectura. Falta vista tipo Gantt + drag & drop.
+*   [x] **US-2.2: Creación de Reserva Manual (Directa)** — backend listo (`POST /booking/reservations/`) con validación de disponibilidad. Falta UI.
+*   [x] **US-2.3: Validación de Overbooking** — implementada en `check_availability()`.
+*   [x] **US-2.4: Desglose de Cobros (Líneas de Reserva)** — Sprint 2. Modelo `ReservationLine` (NIGHT/FEE/EXTRA/DISCOUNT) con M2M a `Tax`. Auto-generadas al crear reserva.
+*   [x] **US-2.5: Asignación de Comisiones a Intermediarios** — Sprint 2. `agent_commission` se calcula automáticamente sobre `subtotal × agent.commission_rate` y se devenga como línea analítica de categoría COMMISSION.
+*   [ ] **US-2.6: Calendario integrado con Google Calendar** — pendiente. Sólo está el placeholder de integración (`google_calendar`).
 
 ---
 
 ## ÉPICA 3: Control Financiero y Reportes de Rentabilidad (P&L)
 **Descripción:** Como Host, necesito saber exactamente cuánto entra, cuánto sale, quién me debe dinero, y si un apartamento específico es rentable o está dando pérdidas.
 
-*   **US-3.1: Registro de Anticipos (Caja)**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** registrar que un huésped hizo un pago parcial (Anticipo 50%) detallando el método (Transferencia, Efectivo).
-    *   **Para** asegurar la reserva y reflejar que el pago_status es "Parcialmente Pagado".
-*   **US-3.2: Cobro de Saldos (Check-in)**
-    *   **Como** Staff/Recepcionista.
-    *   **Quiero** ver fácilmente cuánto saldo pendiente (Balance Due) tiene un huésped al momento de llegar, y registrar el pago final.
-    *   **Para** no entregar las llaves sin haber recaudado la totalidad del dinero.
-*   **US-3.3: Impuestos Configurables**
-    *   **Como** Administrador.
-    *   **Quiero** configurar tipos de impuestos (Ej: IVA 19%, Impuesto al Turismo local) y aplicarlos a ciertas líneas de reserva.
-    *   **Para** cumplir con la legalidad contable del país sin cálculos manuales.
-*   **US-3.4: Creación de Centros de Costo (Cuentas Analíticas)**
-    *   **Como** Sistema (Backend).
-    *   **Quiero** que al crear una Propiedad, se cree en background una Cuenta Analítica vinculada a ella.
-    *   **Para** tener un "bolsillo" contable listo para recibir los ingresos y gastos de ese inmueble.
-*   **US-3.5: Devengo Automático de Ingresos**
-    *   **Como** Sistema (Backend).
-    *   **Quiero** que al pasar una reserva a estado Confirmado/Facturado, se cree automáticamente una Línea Analítica Positiva en la Cuenta de esa Propiedad.
-    *   **Para** registrar el ingreso en la "hoja de balance" del apartamento.
-*   **US-3.6: Registro de Gastos Operativos**
-    *   **Como** Administrador.
-    *   **Quiero** registrar manualmente gastos (Servicios Públicos, Reparaciones) asignando el monto negativo a la Cuenta Analítica de una Propiedad específica.
-    *   **Para** trackear las salidas de dinero reales del negocio.
-*   **US-3.7: Reporte de Rentabilidad por Propiedad (P&L)**
-    *   **Como** Administrador / Dueño.
-    *   **Quiero** ver un reporte consolidado (Tabla/Gráfico) que sume ingresos y reste gastos de una Cuenta Analítica en un mes específico.
-    *   **Para** tomar decisiones de negocio (saber cuál inmueble deja más ganancia o gasta mucho en mantenimiento).
-*   **US-3.8: Reporte de Ocupación y ADR**
-    *   **Como** Administrador / Dueño.
-    *   **Quiero** ver el porcentaje ocupación (%) y la Tarifa Promedio Diaria (ADR) por mes y por propiedad.
-    *   **Para** analizar el rendimiento comercial de mis activos.
+*   [x] **US-3.1: Registro de Anticipos (Caja)** — Sprint 3. Modelo `Payment` con type=ADVANCE. Backend + UI `/pagos`.
+*   [x] **US-3.2: Cobro de Saldos (Check-in)** — Sprint 3. type=BALANCE. `payment_status` se recalcula automáticamente.
+*   [x] **US-3.3: Impuestos Configurables** — Sprint 3. Modelo `Tax` (PERCENT/FIXED) + endpoint CRUD. Aplicable a `ReservationLine` vía M2M.
+*   [x] **US-3.4: Creación de Centros de Costo (Cuentas Analíticas)** — Sprint 3. `AnalyticAccount` con `OneToOne` a `Property`. Auto-creado en `Property.save()`.
+*   [x] **US-3.5: Devengo Automático de Ingresos** — Sprint 3. `accrue_reservation_income()` crea la línea INCOME al confirmar la reserva. Idempotente. También crea la línea COMMISSION si hay agente.
+*   [x] **US-3.6: Registro de Gastos Operativos** — Sprint 3. Endpoint `/finance/expenses/` + UI en `/contabilidad`. Categorías: CLEANING_COST, MAINTENANCE, UTILITIES, COMMISSION, OTHER_EXPENSE.
+*   [x] **US-3.7: Reporte de Rentabilidad por Propiedad (P&L)** — Sprint 3. Endpoint `/finance/profit-and-loss/` y UI `/contabilidad`. Export Excel.
+*   [x] **US-3.8: Reporte de Ocupación y revenue mensual** — `FinanceAnalyticsView` + `get_property_month_metrics` (incluye ADR). Export Excel `/finance/reports/occupancy.xlsx`.
 
 ---
 
 ## ÉPICA 4: Automatización Operativa y Comunicación
 **Descripción:** Como Host, necesito reducir el tiempo de tareas mecánicas (avisar de limpiezas, enviar confirmaciones por WhatsApp) para enfocarme en crecer el negocio.
 
-*   **US-4.1: Generación de Tareas de Limpieza**
-    *   **Como** Sistema (Backend).
-    *   **Quiero** que al llegar el día de "Check-out" de una reserva, se genere automáticamente una "Tarea de Limpieza" asignada a la Propiedad.
-    *   **Para** que el personal de limpieza sepa a qué apartamento ir sin que tenga que avisarles por teléfono.
-*   **US-4.2: Notificación al Personal (Dashboard)**
-    *   **Como** Personal de Limpieza (User `CLEANER`).
-    *   **Quiero** loguearme en la app y ver únicamente un listado con las tareas de limpieza del día y poder marcarlas como "Completadas".
-    *   **Para** optimizar mi ruta de trabajo y notificar al recepcionista que el apto está listo.
-*   **US-4.3: Plantillas de Correo/Mensajes**
-    *   **Como** Administrador.
-    *   **Quiero** crear plantillas de texto con variables maestras (Ej: "Hola {{guest_name}}, tu reserva en {{property_name}} está lista. Código WiFi: {{wifi_pass}}").
-    *   **Para** no tener que redactar el mismo correo cientos de veces.
-*   **US-4.4: Envío de Confirmación de Reserva**
-    *   **Como** Agente de Reservas.
-    *   **Quiero** tener un botón en la Reserva que genere un email/mensaje con la plantilla de Confirmación y se lo envíe al huésped.
-    *   **Para** darle seguridad y profesionalismo al cliente.
-*   **US-4.5: Descarga de Voucher PDF**
-    *   **Como** Huésped / Agente de Reservas.
-    *   **Quiero** poder descargar un documento en PDF (generado automáticamente con el Template Engine) que contenga los detalles oficiales de la reserva, importes pagados y políticas.
-    *   **Para** tener un comprobante físico o digital oficial de mi compra.
+*   [ ] **US-4.1: Generación de Tareas de Limpieza** — pendiente. Falta el modelo `Task`.
+*   [ ] **US-4.2: Notificación al Personal (Dashboard CLEANER)** — pendiente. El `system_role=CLEANER` ya está en el modelo `User`, falta vista filtrada.
+*   [ ] **US-4.3: Plantillas de Correo/Mensajes** — pendiente.
+*   [ ] **US-4.4: Envío de Confirmación de Reserva** — pendiente.
+*   [ ] **US-4.5: Descarga de Voucher PDF** — pendiente. Requiere WeasyPrint en backend.
 
 ---
 
 ## ÉPICA 5: Requerimientos No Funcionales (NFRs)
 **Descripción:** Como Arquitecto/Propietario, necesito que el sistema sea seguro, rápido, escalable y mantenible para garantizar la continuidad del negocio y la protección de datos, sin importar cuántas propiedades o Tenants se agreguen.
 
-*   [x] **NFR-5.1: Aislamiento de Datos (Multitenancy)**
-    *   **RESTricción:** Los datos de un Tenant A jamás deben ser accesibles ni visibles por un usuario del Tenant B, bajo ninguna circunstancia (incluso en caso de bugs).
-    *   **Medición:** Validaciones a nivel de middleware y pruebas automatizadas de intento de inyección de `tenant_id` ajeno en todos los endpoints REST.
-*   **NFR-5.2: Rendimiento y Tiempos de Carga**
-    *   **RESTricción:** Las consultas de disponibilidad en el calendario y las respuestas de la API pública para reservas externas deben responder en menos de 500ms al 95% de las peticiones (prevenir timeouts en integraciones web).
-    *   **Medición:** Uso de caché eficiente (ej. Redis en el futuro) para tablas estáticas (Amenities) y queries optimizadas para reservas.
-*   **NFR-5.3: Trazabilidad y Auditoría (Logs)**
-    *   **RESTricción:** Cualquier acción crítica como: borrar una reserva, modificar un pago o cambiar una regla de precios debe dejar un rastro (quién, cuándo, valores antiguos y nuevos).
-    *   **Medición:** Uso de librerías como `django-simple-history` o logs centralizados.
-*   **NFR-5.4: Disponibilidad (Uptime)**
-    *   **RESTricción:** El sistema en AWS debe tener un acuerdo de nivel de servicio (SLA) de 99.9% de uptime, crucial para un motor de reservas.
-    *   **Medición:** Despliegue en AWS ECS (contenedores) con auto-scaling y Health Checks, además de base de datos AWS RDS Multi-AZ.
-*   **NFR-5.5: Seguridad y Privacidad de Datos**
-    *   **RESTricción:** Todos los datos sensibles, en especial contraseñas y claves de API de terceros (Airbnb tokens, WhatsApp tokens integrados vía tenant), deben estar fuertemente encriptados en base de datos.
-    *   **Medición:** Uso de bcrypt/argon2 para contraseñas; llaves simétricas guardadas de forma segura para los tokens de integración (usando AWS KMS o variables de entorno).
-*   **NFR-5.6: Diseño Responsivo (Mobile-First)**
-    *   **RESTricción:** Tanto el Portal Público del Huésped como la interfaz del Dashboard Administrativo deben funcionar y visualizarse correctamente en smartphones.
-    *   **Medición:** Pruebas de usabilidad bajo tamaños de pantalla inferiores a 768px; diseño usando grillas full responsivas de Tailwind CSS.
+*   [x] **NFR-5.1: Aislamiento de Datos (Multitenancy)** — `TenantAwareManager` + `TenantResolutionMiddleware` + `TenantModulePermission`. Tests automatizados validan que un OWNER no puede operar en otro tenant ni leer códigos de invitación ajenos.
+*   [ ] **NFR-5.2: Rendimiento y Tiempos de Carga** — pendiente. No hay caché, no hay benchmarks. Postgres index básicos en multi-tenant.
+*   [ ] **NFR-5.3: Trazabilidad y Auditoría (Logs)** — pendiente. No está integrado `django-simple-history`.
+*   [ ] **NFR-5.4: Disponibilidad (Uptime)** — pendiente. No hay infra desplegada todavía.
+*   [x] **NFR-5.5: Seguridad y Privacidad de Datos** — passwords con bcrypt (default Django). `Tenant.integration_config` se oculta a usuarios no-OWNER. La rotación / cifrado a nivel de DB de tokens externos queda pendiente.
+*   [ ] **NFR-5.6: Diseño Responsivo (Mobile-First)** — frontend usa Tailwind con utilidades responsive, falta auditoría sistemática.
+
+---
+
+## Estado de Sprints
+
+| Sprint | Foco | Estado |
+| --- | --- | --- |
+| **Sprint 0** | Acceso controlado (Épica 0) + UX de signup + privacidad de settings | ✅ Completo (2026-05-13) |
+| **Sprint 1** | Inventario, CRM, Reservas básicas, RBAC | ✅ Backend completo. Frontend mayoritariamente lectura. |
+| **Sprint 2** | Motor de tarifas dinámicas (`PriceRule`), líneas de reserva, comisiones, taxes | ✅ Backend completo (2026-05-14). Frontend de calendario drag&drop, wizard nueva reserva, CRUD UI de PriceRule/Tax y Google Calendar real **pendientes**. |
+| **Sprint 3** | Pagos manuales, contabilidad analítica, P&L, Excel | ✅ Backend + frontend completos (2026-05-14). |
+| **Sprint 4** | Tareas de limpieza, vista CLEANER, plantillas, voucher PDF, Google Calendar real | ⏳ Pendiente |
+| **Sprint 5** | NFRs (auditoría, encriptación tokens, despliegue cloud) | ⏳ Pendiente |

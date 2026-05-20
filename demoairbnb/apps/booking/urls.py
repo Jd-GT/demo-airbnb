@@ -1,28 +1,55 @@
 from django.urls import path
 
-from .views import AvailabilityCheckView, QuoteView, ReservationViewSet
+from .views import (
+    AvailabilityCheckView,
+    PriceRuleViewSet,
+    QuoteView,
+    ReservationViewSet,
+)
 
+reservation_list = ReservationViewSet.as_view({'get': 'list', 'post': 'create'})
+reservation_detail = ReservationViewSet.as_view({'get': 'retrieve'})
+reservation_voucher = ReservationViewSet.as_view({'get': 'voucher_pdf'})
 
-reservation_list = ReservationViewSet.as_view({"get": "list", "post": "create"})
-reservation_detail = ReservationViewSet.as_view({"get": "retrieve"})
-reservation_voucher = ReservationViewSet.as_view({"get": "voucher_pdf"})
+price_rule_list = PriceRuleViewSet.as_view({'get': 'list', 'post': 'create'})
+price_rule_detail = PriceRuleViewSet.as_view(
+    {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
+)
 
 urlpatterns = [
-    path("tenants/<uuid:tenant_id>/booking/reservations/", reservation_list, name="reservation-list"),
     path(
-        "tenants/<uuid:tenant_id>/booking/reservations/<uuid:reservation_id>/",
+        'tenants/<uuid:tenant_id>/booking/reservations/',
+        reservation_list,
+        name='reservation-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/booking/reservations/<uuid:reservation_id>/',
         reservation_detail,
-        name="reservation-detail",
+        name='reservation-detail',
     ),
     path(
-        "tenants/<uuid:tenant_id>/booking/reservations/<uuid:reservation_id>/voucher-pdf/",
+        'tenants/<uuid:tenant_id>/booking/reservations/<uuid:reservation_id>/voucher-pdf/',
         reservation_voucher,
-        name="reservation-voucher-pdf",
+        name='reservation-voucher-pdf',
     ),
     path(
-        "tenants/<uuid:tenant_id>/booking/reservations/availability/",
+        'tenants/<uuid:tenant_id>/booking/reservations/availability/',
         AvailabilityCheckView.as_view(),
-        name="reservation-availability",
+        name='reservation-availability',
     ),
-    path("tenants/<uuid:tenant_id>/booking/quote/", QuoteView.as_view(), name="booking-quote"),
+    path(
+        'tenants/<uuid:tenant_id>/booking/quote/',
+        QuoteView.as_view(),
+        name='booking-quote',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/booking/price-rules/',
+        price_rule_list,
+        name='price-rule-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/booking/price-rules/<uuid:rule_id>/',
+        price_rule_detail,
+        name='price-rule-detail',
+    ),
 ]
