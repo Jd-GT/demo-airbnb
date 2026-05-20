@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -7,6 +11,7 @@ import {
   House,
   ShieldCheck,
 } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
 
 const heroImage =
   "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1800&q=85";
@@ -30,6 +35,25 @@ const highlights = [
 ];
 
 export default function LandingPage() {
+  const router = useRouter();
+  const { isAuth, loading } = useAuth();
+
+  // Si ya hay sesión activa, salta la landing y manda al dashboard.
+  useEffect(() => {
+    if (!loading && isAuth) {
+      router.replace("/dashboard");
+    }
+  }, [isAuth, loading, router]);
+
+  // Mientras el AuthProvider resuelve, no parpadeamos la landing pública.
+  if (loading || isAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <div className="text-sm text-muted-foreground">Cargando…</div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="relative flex min-h-[82svh] overflow-hidden">

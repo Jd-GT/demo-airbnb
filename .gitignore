@@ -1,4 +1,20 @@
-# Python
+# ============================================================
+# Secrets y credenciales — NUNCA al repo
+# ============================================================
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+.env
+.env.*
+!.env.example
+!.env.production.example
+airbnbp2_key*
+
+# ============================================================
+# Python / Django
+# ============================================================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,8 +26,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-/lib/
-/lib64/
 parts/
 sdist/
 var/
@@ -23,52 +37,79 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
-venv/
-ENV/
-env/
-.venv
-
-# Django
+# Django runtime artifacts
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-/media
-/staticfiles
-migrations/
-!migrations/__init__.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Testing
+media/
+staticfiles/
+*.pot
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
 .nox/
 
-# Ruff
-.ruff_cache/
-.ruff.toml
+# IMPORTANTE: las migraciones SI van al repo (definen el schema).
+# NO ignores */migrations/.
 
-# Node (si hay)
+# ============================================================
+# Virtual environments
+# ============================================================
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================
+# Node / Next.js
+# ============================================================
 node_modules/
+.next/
+out/
+.pnp
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+.vercel
+*.tsbuildinfo
+next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+
+# ============================================================
+# Docker / deploy
+# ============================================================
+*.tar
+*.tar.gz
+*.zip
+
+# ============================================================
+# Ruff / linters
+# ============================================================
+.ruff_cache/
+
+# ============================================================
+# IDEs / OS
+# ============================================================
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Backups locales / archivos sueltos
+# ============================================================
+*.bak
+*.orig
