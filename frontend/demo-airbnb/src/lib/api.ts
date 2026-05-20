@@ -186,6 +186,16 @@ export type PropertyApi = {
   occupancy_rate: number;
 };
 
+export type PropertyCreatePayload = {
+  name: string;
+  address: string;
+  capacity_adults: number;
+  capacity_kids: number;
+  base_price: string;
+  cleaning_fee: string;
+  amenity_ids?: string[];
+};
+
 export type ReservationApi = {
   id: string;
   property: string;
@@ -471,6 +481,54 @@ async function requestWithSession<T>(
   }
 }
 
+async function requestBlobWithSession(
+  path: string,
+  session: DemoSession,
+  options: Omit<RequestInit, "body"> = {},
+  allowRefresh = true,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${session.access}`);
+  headers.set("X-Tenant-ID", session.tenantId);
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (allowRefresh && response.status === 401) {
+    const refreshed = await refreshSession(session);
+    return requestBlobWithSession(path, refreshed, options, false);
+  }
+
+  if (!response.ok) {
+    const payload = await parseResponseBody(response);
+    const message =
+      typeof payload === "object" && payload !== null && "detail" in payload
+        ? String((payload as { detail: string }).detail)
+        : `La descarga desde ${path} fallo con estado ${response.status}.`;
+    throw new ApiError(message, response.status, payload);
+  }
+
+  const disposition = response.headers.get("Content-Disposition");
+  const filenameMatch = disposition?.match(/filename="?([^"]+)"?/i);
+  return {
+    blob: await response.blob(),
+    filename: filenameMatch?.[1] ?? null,
+  };
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 async function ensureSeedData(session: DemoSession) {
   if (seededTenantId === session.tenantId) {
     return;
@@ -670,6 +728,18 @@ export async function fetchProperties(params: { year: number; month: number }): 
   );
 }
 
+export async function createProperty(payload: PropertyCreatePayload): Promise<PropertyApi> {
+  const session = await ensureDemoSession();
+  return requestWithSession<PropertyApi>(
+    `/api/tenants/${session.tenantId}/inventory/properties/`,
+    session,
+    {
+      method: "POST",
+      body: payload,
+    },
+  );
+}
+
 export async function fetchReservations(params: { from: string; to: string }): Promise<ReservationApi[]> {
   const session = await ensureDemoSession();
   return requestWithSession<ReservationApi[]>(
@@ -684,6 +754,29 @@ export async function fetchFinanceAnalytics(params: { year: number; month: numbe
     `/api/tenants/${session.tenantId}/finance/analytics/?year=${params.year}&month=${params.month}`,
     session,
   );
+}
+
+export async function downloadReservationVoucher(
+  tenantId: string,
+  reservationId: string,
+) {
+  const session = await ensureDemoSession();
+  const resolvedTenantId = tenantId && tenantId !== "unknown" ? tenantId : session.tenantId;
+  const { blob, filename } = await requestBlobWithSession(
+    `/api/tenants/${resolvedTenantId}/booking/reservations/${reservationId}/voucher-pdf/`,
+    session,
+  );
+  saveBlob(blob, filename ?? `voucher-${reservationId}.pdf`);
+}
+
+export async function downloadPropertyReport(tenantId: string, reportId: string) {
+  const session = await ensureDemoSession();
+  const resolvedTenantId = tenantId && tenantId !== "unknown" ? tenantId : session.tenantId;
+  const { blob, filename } = await requestBlobWithSession(
+    `/api/tenants/${resolvedTenantId}/finance/profitability/${reportId}/download-pdf/`,
+    session,
+  );
+  saveBlob(blob, filename ?? `report-${reportId}.pdf`);
 }
 
 export async function fetchIntegrations(): Promise<IntegrationApi[]> {
@@ -703,6 +796,115 @@ export async function startGoogleCalendarOAuth(): Promise<string> {
     session,
   );
   return authorization_url;
+}
+
+export type GoogleCalendarSyncResult = {
+  synced: number;
+  failed: number;
+  errors: Array<{ reservation_id: string; error: string }>;
+  last_sync_at: string | null;
+  last_sync_status: "pending" | "connected" | "error";
+};
+
+export async function syncGoogleCalendarNow(): Promise<GoogleCalendarSyncResult> {
+  const session = await ensureDemoSession();
+  return requestWithSession<GoogleCalendarSyncResult>(
+    `/api/tenants/${session.tenantId}/integrations/google-calendar/sync-now/`,
+    session,
+    { method: "POST" },
+  );
+}
+
+export type ICalFeedApi = {
+  id: string;
+  property: string;
+  property_name: string;
+  label: string;
+  ical_url: string;
+  is_active: boolean;
+  last_synced_at: string | null;
+  last_sync_status: "never" | "ok" | "error";
+  last_sync_error: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ICalFeedCreatePayload = {
+  property: string;
+  label: string;
+  ical_url: string;
+  is_active?: boolean;
+};
+
+export async function fetchICalFeeds(): Promise<ICalFeedApi[]> {
+  const session = await ensureDemoSession();
+  return requestWithSession<ICalFeedApi[]>(
+    `/api/tenants/${session.tenantId}/channels/ical-feeds/`,
+    session,
+  );
+}
+
+export async function createICalFeed(
+  payload: ICalFeedCreatePayload,
+): Promise<ICalFeedApi> {
+  const session = await ensureDemoSession();
+  return requestWithSession<ICalFeedApi>(
+    `/api/tenants/${session.tenantId}/channels/ical-feeds/`,
+    session,
+    { method: "POST", body: payload },
+  );
+}
+
+export async function deleteICalFeed(feedId: string): Promise<void> {
+  const session = await ensureDemoSession();
+  await requestWithSession<void>(
+    `/api/tenants/${session.tenantId}/channels/ical-feeds/${feedId}/`,
+    session,
+    { method: "DELETE" },
+  );
+}
+
+export type ICalFeedSyncResult = {
+  feed_id: string;
+  created: number;
+  skipped: number;
+  errors: string[];
+  last_sync_status: "never" | "ok" | "error";
+  last_synced_at: string | null;
+};
+
+export async function syncICalFeedNow(feedId: string): Promise<ICalFeedSyncResult> {
+  const session = await ensureDemoSession();
+  return requestWithSession<ICalFeedSyncResult>(
+    `/api/tenants/${session.tenantId}/channels/ical-feeds/${feedId}/sync-now/`,
+    session,
+    { method: "POST" },
+  );
+}
+
+export type ICalSyncAllResult = {
+  feeds: number;
+  created: number;
+  skipped: number;
+  errors: number;
+  details: Array<{
+    feed_id: string;
+    label: string;
+    property: string;
+    created: number;
+    skipped: number;
+    errors: string[];
+    status: string;
+  }>;
+};
+
+export async function syncAllICalFeeds(): Promise<ICalSyncAllResult> {
+  const session = await ensureDemoSession();
+  return requestWithSession<ICalSyncAllResult>(
+    `/api/tenants/${session.tenantId}/channels/ical-feeds/sync-all/`,
+    session,
+    { method: "POST" },
+  );
 }
 
 export function shiftMonth(year: number, month: number, delta: number) {

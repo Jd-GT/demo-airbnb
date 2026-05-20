@@ -11,3 +11,5 @@ cryptography>=42.0,<46
 google-auth>=2.29,<3
 google-auth-oauthlib>=1.2,<2
 google-api-python-client>=2.130,<3
+icalendar>=6.0,<8
+requests>=2.32,<3

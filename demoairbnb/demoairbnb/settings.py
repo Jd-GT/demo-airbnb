@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.crm",
     "apps.booking",
     "apps.finance",
+    "apps.channels",
 ]
 
 MIDDLEWARE = [

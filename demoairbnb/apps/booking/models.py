@@ -15,6 +15,11 @@ class ReservationStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
+class ReservationSource(models.TextChoices):
+    MANUAL = "manual", "Manual"
+    ICAL = "ical", "iCal (externo)"
+
+
 class Reservation(TenantAwareModel):
     property = models.ForeignKey("inventory.Property", on_delete=models.PROTECT, related_name="reservations")
     guest = models.ForeignKey("crm.Contact", on_delete=models.PROTECT, related_name="guest_reservations")
@@ -47,6 +52,11 @@ class Reservation(TenantAwareModel):
         validators=[MinValueValidator(Decimal("0"))],
     )
     status = models.CharField(max_length=16, choices=ReservationStatus.choices, default=ReservationStatus.CONFIRMED)
+    source = models.CharField(
+        max_length=20,
+        choices=ReservationSource.choices,
+        default=ReservationSource.MANUAL,
+    )
     created_by = models.ForeignKey("core.User", on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:

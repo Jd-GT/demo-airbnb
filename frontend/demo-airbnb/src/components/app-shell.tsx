@@ -9,6 +9,7 @@ import {
   DollarSign,
   Building2,
   Link2,
+  CreditCard,
   ChevronLeft,
   ChevronRight,
   Bell,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getActiveMembershipTier } from "@/lib/memberships";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,6 +35,7 @@ const navItems = [
   { href: "/finanzas", label: "Finanzas", icon: DollarSign },
   { href: "/propiedades", label: "Propiedades", icon: Building2 },
   { href: "/integraciones", label: "Integraciones", icon: Link2 },
+  { href: "/memberships", label: "Memberships", icon: CreditCard },
 ];
 
 function isNavItemActive(pathname: string, href: string) {
@@ -60,6 +63,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const shouldReduceMotion = useReducedMotion();
   const displayName = user?.full_name || user?.email || "Usuario";
   const initials = getInitials(user?.full_name || user?.email);
+  const activeMembership = getActiveMembershipTier();
   const activeItem =
     navItems.find((item) => isNavItemActive(pathname, item.href)) ?? navItems[0];
   const sidebarTransition = shouldReduceMotion
@@ -180,7 +184,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             >
               <div className="glass-card rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">Property Manager</p>
-                <p className="text-xs text-gold font-medium mt-0.5">Plan Premium</p>
+                <p className="text-xs text-gold font-medium mt-0.5">
+                  Plan {activeMembership.name}
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  ${activeMembership.priceUsd} USD/mes
+                </p>
               </div>
             </motion.div>
           )}

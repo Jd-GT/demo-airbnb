@@ -12,6 +12,7 @@ analytics_view = FinanceAnalyticsView.as_view()
 profitability_list = PropertyProfitabilityReportViewSet.as_view({"get": "list", "post": "create"})
 profitability_detail = PropertyProfitabilityReportViewSet.as_view({"get": "retrieve"})
 profitability_calculate = PropertyProfitabilityReportViewSet.as_view({"post": "calculate_for_property"})
+profitability_download = PropertyProfitabilityReportViewSet.as_view({"get": "download_pdf"})
 
 voucher_list = VoucherViewSet.as_view({"get": "list", "post": "create"})
 voucher_detail = VoucherViewSet.as_view({"get": "retrieve"})
@@ -32,6 +33,11 @@ urlpatterns = [
         "tenants/<uuid:tenant_id>/finance/profitability/<uuid:report_id>/",
         profitability_detail,
         name="profitability-detail",
+    ),
+    path(
+        "tenants/<uuid:tenant_id>/finance/profitability/<uuid:report_id>/download-pdf/",
+        profitability_download,
+        name="profitability-download-pdf",
     ),
     path(
         "tenants/<uuid:tenant_id>/finance/profitability/calculate/",

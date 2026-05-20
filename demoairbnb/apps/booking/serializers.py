@@ -53,6 +53,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             "cleaning_fee",
             "total_amount",
             "status",
+            "source",
             "created_at",
             "updated_at",
         ]
@@ -62,6 +63,7 @@ class ReservationSerializer(serializers.ModelSerializer):
             "subtotal_amount",
             "cleaning_fee",
             "total_amount",
+            "source",
             "created_at",
             "updated_at",
         ]

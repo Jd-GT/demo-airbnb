@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python manage.py migrate)"
+      "Bash(python manage.py migrate)",
+      "Bash(python manage.py check)",
+      "Bash(python manage.py test apps.booking -v 0)"
     ]
   }
 }

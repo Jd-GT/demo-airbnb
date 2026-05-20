@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     GoogleCalendarOAuthCallbackView,
     GoogleCalendarOAuthInitView,
+    GoogleCalendarSyncNowView,
     LogoutView,
     EmailTemplateViewSet,
     TenantIntegrationsView,
@@ -54,5 +55,10 @@ urlpatterns = [
         "integrations/google-calendar/oauth-callback/",
         GoogleCalendarOAuthCallbackView.as_view(),
         name="google-calendar-oauth-callback",
+    ),
+    path(
+        "tenants/<uuid:tenant_id>/integrations/google-calendar/sync-now/",
+        GoogleCalendarSyncNowView.as_view(),
+        name="google-calendar-sync-now",
     ),
 ]

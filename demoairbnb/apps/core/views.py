@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -225,6 +226,54 @@ class GoogleCalendarOAuthCallbackView(APIView):
     @staticmethod
     def _redirect_to_frontend(base: str, params: dict) -> HttpResponseRedirect:
         return HttpResponseRedirect(f"{base}?{urlencode(params)}")
+
+
+class GoogleCalendarSyncNowView(APIView):
+    """Backfill / retry sync of all upcoming reservations to Google Calendar."""
+
+    permission_classes = [permissions.IsAuthenticated, TenantModulePermission]
+    permission_module = ModuleKey.CORE.value
+    required_permission_level = PermissionLevel.WRITE
+
+    def post(self, request, tenant_id):
+        from apps.booking.models import Reservation, ReservationStatus
+
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        credential = getattr(tenant, "google_calendar_credential", None)
+        if credential is None or not credential.is_active:
+            return Response(
+                {"detail": "Google Calendar no esta conectado para este tenant."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        adapter = GoogleCalendarAdapter(credential)
+        reservations = (
+            Reservation.all_objects.filter(tenant=tenant, check_out__gte=date.today())
+            .exclude(status=ReservationStatus.CANCELLED)
+            .select_related("property", "guest")
+            .order_by("check_in")
+        )
+
+        synced = 0
+        failed = 0
+        errors: list[dict] = []
+        for reservation in reservations:
+            try:
+                adapter.sync_reservation(reservation)
+                synced += 1
+            except Exception as exc:  # noqa: BLE001 — surface every error to the UI
+                failed += 1
+                errors.append({"reservation_id": str(reservation.id), "error": str(exc)[:200]})
+
+        return Response(
+            {
+                "synced": synced,
+                "failed": failed,
+                "errors": errors,
+                "last_sync_at": credential.last_sync_at.isoformat() if credential.last_sync_at else None,
+                "last_sync_status": credential.last_sync_status,
+            }
+        )
 
 
 class EmailTemplateViewSet(

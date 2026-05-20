@@ -6,8 +6,10 @@ import { useAsyncData } from "@/hooks/use-async-data";
 import {
   fetchIntegrations,
   startGoogleCalendarOAuth,
+  syncGoogleCalendarNow,
   type IntegrationApi,
 } from "@/lib/api";
+import ICalFeedsSection from "./ical-feeds-section";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -17,7 +19,7 @@ import {
   RefreshCw,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Integration = {
@@ -78,7 +80,7 @@ function mapIntegration(integration: IntegrationApi): Integration {
   };
 }
 
-export default function IntegracionesPage() {
+function IntegracionesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const googleParam = searchParams.get("google");
@@ -94,6 +96,8 @@ export default function IntegracionesPage() {
   const [callbackBanner, setCallbackBanner] = useState<
     { kind: "success" | "error"; message: string } | null
   >(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncSummary, setSyncSummary] = useState<string | null>(null);
 
   useEffect(() => {
     if (!googleParam) return;
@@ -125,6 +129,26 @@ export default function IntegracionesPage() {
         err instanceof Error ? err.message : "No se pudo iniciar la conexion.",
       );
       setConnecting(false);
+    }
+  };
+
+  const handleSyncGoogle = async () => {
+    setSyncing(true);
+    setSyncSummary(null);
+    try {
+      const result = await syncGoogleCalendarNow();
+      setSyncSummary(
+        result.failed > 0
+          ? `Sincronizadas ${result.synced} reservas, ${result.failed} fallidas.`
+          : `Sincronizadas ${result.synced} reservas.`,
+      );
+      reload?.();
+    } catch (err) {
+      setSyncSummary(
+        err instanceof Error ? `Error: ${err.message}` : "No se pudo sincronizar.",
+      );
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -200,6 +224,15 @@ export default function IntegracionesPage() {
         {connectError ? (
           <motion.div variants={itemVariants} className="mb-6">
             <ErrorCard title="Error al iniciar OAuth de Google" message={connectError} />
+          </motion.div>
+        ) : null}
+
+        {syncSummary ? (
+          <motion.div variants={itemVariants} className="mb-6">
+            <div className="flex items-start gap-3 rounded-lg border border-gold/20 bg-gold/10 p-4 text-sm text-gold">
+              <RefreshCw className="mt-0.5 h-4 w-4" />
+              <span>{syncSummary}</span>
+            </div>
           </motion.div>
         ) : null}
 
@@ -297,18 +330,32 @@ export default function IntegracionesPage() {
                   )}
 
                   {integration.id === "google" ? (
-                    <button
-                      onClick={handleConnectGoogle}
-                      disabled={connecting}
-                      className="flex items-center gap-1 rounded-md border border-gold/20 bg-gold/10 px-2.5 py-1 text-xs text-gold transition-colors hover:bg-gold/20 disabled:opacity-50"
-                    >
-                      {connecting
-                        ? "Redirigiendo..."
-                        : integration.status === "connected"
-                          ? "Reconectar con Google"
-                          : "Conectar con Google"}
-                      <ExternalLink className="h-3 w-3" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {integration.status === "connected" ? (
+                        <button
+                          onClick={handleSyncGoogle}
+                          disabled={syncing}
+                          className="flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                        >
+                          <RefreshCw
+                            className={`h-3 w-3 ${syncing ? "animate-spin" : ""}`}
+                          />
+                          {syncing ? "Sincronizando..." : "Sincronizar ahora"}
+                        </button>
+                      ) : null}
+                      <button
+                        onClick={handleConnectGoogle}
+                        disabled={connecting}
+                        className="flex items-center gap-1 rounded-md border border-gold/20 bg-gold/10 px-2.5 py-1 text-xs text-gold transition-colors hover:bg-gold/20 disabled:opacity-50"
+                      >
+                        {connecting
+                          ? "Redirigiendo..."
+                          : integration.status === "connected"
+                            ? "Reconectar"
+                            : "Conectar con Google"}
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                    </div>
                   ) : (
                     <button className="flex items-center gap-1 text-xs text-gold opacity-0 transition-colors hover:text-gold-light group-hover:opacity-100">
                       {integration.status === "connected"
@@ -324,7 +371,26 @@ export default function IntegracionesPage() {
             );
           })}
         </div>
+
+        <ICalFeedsSection />
       </motion.div>
     </AppShell>
+  );
+}
+
+export default function IntegracionesPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell>
+          <LoadingCard
+            title="Cargando integraciones"
+            message="Preparando configuracion de conexiones."
+          />
+        </AppShell>
+      }
+    >
+      <IntegracionesContent />
+    </Suspense>
   );
 }

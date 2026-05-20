@@ -5,18 +5,22 @@ import { ErrorCard, LoadingCard } from "@/components/page-feedback";
 import { useAsyncData } from "@/hooks/use-async-data";
 import {
   LONG_MONTH_LABELS,
+  fetchIntegrations,
   fetchReservations,
   getMonthDateRange,
   shiftMonth,
+  syncGoogleCalendarNow,
   toNumber,
   downloadReservationVoucher,
 } from "@/lib/api";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
+  Check,
   ChevronLeft,
   ChevronRight,
   Download,
+  RefreshCw,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -90,6 +94,9 @@ export default function CalendarioPage() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [propertyFilter, setPropertyFilter] = useState<string>("all");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const firstDayOfMonth = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
@@ -120,7 +127,81 @@ export default function CalendarioPage() {
     }));
   }, [currentMonth, currentYear, monthRange.endIso, monthRange.startIso]);
 
-  const bookings = data ?? [];
+  const { data: integrations, reload: reloadIntegrations } = useAsyncData(
+    () => fetchIntegrations(),
+    [],
+  );
+
+  const allBookings = data ?? [];
+  const propertyOptions = useMemo(() => {
+    const unique = Array.from(new Set(allBookings.map((b) => b.property))).sort();
+    return unique;
+  }, [allBookings]);
+  const bookings =
+    propertyFilter === "all"
+      ? allBookings
+      : allBookings.filter((b) => b.property === propertyFilter);
+
+  const googleIntegration = integrations?.find((i) => i.id === "google") ?? null;
+  const googleConnected = googleIntegration?.status === "connected";
+
+  const monthStats = useMemo(() => {
+    const monthStart = new Date(currentYear, currentMonth, 1);
+    const monthEnd = new Date(currentYear, currentMonth + 1, 1);
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    let nights = 0;
+    let revenue = 0;
+    for (const booking of bookings) {
+      if (booking.status === "blocked") continue;
+      const overlapStart = booking.startDate > monthStart ? booking.startDate : monthStart;
+      const overlapEnd = booking.endDate < monthEnd ? booking.endDate : monthEnd;
+      const overlapNights = Math.max(
+        0,
+        Math.round((overlapEnd.getTime() - overlapStart.getTime()) / dayMs),
+      );
+      const totalNights = Math.max(
+        1,
+        Math.round((booking.endDate.getTime() - booking.startDate.getTime()) / dayMs),
+      );
+      nights += overlapNights;
+      revenue += (booking.price * overlapNights) / totalNights;
+    }
+
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const distinctProps = propertyFilter === "all" ? propertyOptions.length || 1 : 1;
+    const occupancy = Math.min(
+      100,
+      Math.round((nights / (totalDays * distinctProps)) * 100),
+    );
+
+    return {
+      reservations: bookings.length,
+      nights,
+      revenue,
+      occupancy,
+    };
+  }, [bookings, currentMonth, currentYear, propertyFilter, propertyOptions.length]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const result = await syncGoogleCalendarNow();
+      setSyncMessage(
+        result.failed > 0
+          ? `${result.synced} sincronizadas, ${result.failed} con error.`
+          : `${result.synced} reservas sincronizadas con Google.`,
+      );
+      reloadIntegrations?.();
+    } catch (err) {
+      setSyncMessage(
+        err instanceof Error ? `Error: ${err.message}` : "No se pudo sincronizar.",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const prevMonth = () => {
     if (currentMonth === 0) {
@@ -203,6 +284,35 @@ export default function CalendarioPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {googleConnected ? (
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                title={
+                  googleIntegration?.last_sync
+                    ? `Ultima sync: ${new Date(googleIntegration.last_sync).toLocaleString()}`
+                    : "Sincronizar con Google Calendar"
+                }
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`}
+                />
+                {syncing ? "Sincronizando..." : "Sync Google"}
+              </button>
+            ) : null}
+            <select
+              value={propertyFilter}
+              onChange={(event) => setPropertyFilter(event.target.value)}
+              className="rounded-md border border-border bg-muted/30 px-3 py-1.5 text-xs text-foreground"
+            >
+              <option value="all">Todas las propiedades</option>
+              {propertyOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
             <div className="flex rounded-lg bg-muted/50 p-0.5">
               <button
                 onClick={() => setViewMode("month")}
@@ -227,6 +337,42 @@ export default function CalendarioPage() {
             </div>
           </div>
         </div>
+
+        {syncMessage ? (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-gold/20 bg-gold/10 p-3 text-xs text-gold">
+            <Check className="h-3.5 w-3.5" />
+            {syncMessage}
+          </div>
+        ) : null}
+
+        {data ? (
+          <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="glass-card rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Reservas</p>
+              <p className="text-xl font-semibold text-foreground">
+                {monthStats.reservations}
+              </p>
+            </div>
+            <div className="glass-card rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Noches ocupadas</p>
+              <p className="text-xl font-semibold text-foreground">
+                {monthStats.nights}
+              </p>
+            </div>
+            <div className="glass-card rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Ingresos del mes</p>
+              <p className="text-xl font-semibold text-gold">
+                {formatCOP(monthStats.revenue)}
+              </p>
+            </div>
+            <div className="glass-card rounded-lg p-3">
+              <p className="text-xs text-muted-foreground">Ocupacion</p>
+              <p className="text-xl font-semibold text-foreground">
+                {monthStats.occupancy}%
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {loading && !data ? (
           <LoadingCard
