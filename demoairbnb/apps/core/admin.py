@@ -6,9 +6,15 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from .integrations import GoogleCalendarCredential
-from .models import InvitationCode, InvitationCodePurpose, Tenant, TenantRole, User
+from .models import (
+    EmailTemplate,
+    InvitationCode,
+    InvitationCodePurpose,
+    Tenant,
+    TenantRole,
+    User,
+)
 from .services import issue_create_tenant_code
-
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
@@ -247,3 +253,20 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+
+@admin.register(EmailTemplate)
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ("name", "template_type", "tenant", "is_active", "is_default", "created_at")
+    list_filter = ("template_type", "is_active", "is_default", "tenant")
+    search_fields = ("name", "subject", "body")
+    fieldsets = (
+        (None, {"fields": ("tenant", "name", "template_type")}),
+        ("Content", {"fields": ("subject", "body")}),
+        (
+            "Settings",
+            {"fields": ("is_active", "is_default", "variables_used")},
+        ),
+        ("Metadata", {"fields": ("created_at", "updated_at")}),
+    )
+    readonly_fields = ("created_at", "updated_at")

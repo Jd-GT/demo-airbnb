@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import re
 
+from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .constants import SystemRole, validate_permissions_map
 from .integrations import GoogleCalendarCredential
 from .models import (
+    EmailTemplate,
     InvitationCode,
     InvitationCodePurpose,
     Tenant,
@@ -44,6 +47,65 @@ def validate_subdomain(value: str) -> str:
     if not SUBDOMAIN_PATTERN.match(cleaned):
         raise serializers.ValidationError(SUBDOMAIN_HELP)
     return cleaned
+
+
+def serialize_auth_user(user: User) -> dict[str, str | None]:
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name,
+        "system_role": user.system_role,
+        "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+    }
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(min_length=8, write_only=True, trim_whitespace=False)
+
+    default_error_messages = {
+        "invalid_credentials": "Unable to log in with the provided credentials.",
+        "inactive": "This user account is inactive.",
+    }
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = authenticate(
+            request=request,
+            username=attrs["email"],
+            password=attrs["password"],
+        )
+
+        if user is None:
+            raise serializers.ValidationError(
+                {"detail": self.error_messages["invalid_credentials"]},
+                code="authorization",
+            )
+
+        if not user.is_active:
+            raise serializers.ValidationError(
+                {"detail": self.error_messages["inactive"]},
+                code="authorization",
+            )
+
+        attrs["user"] = user
+        return attrs
+
+
+class PersonalizedTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        access_token = data["access"]
+        refresh_token = data["refresh"]
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "user": serialize_auth_user(self.user),
+            # Keep SimpleJWT's default keys for existing clients already using them.
+            "access": access_token,
+            "refresh": refresh_token,
+        }
 
 
 class TenantSerializer(serializers.ModelSerializer):
@@ -525,3 +587,37 @@ class IntegrationItemSerializer(serializers.Serializer):
     color = serializers.CharField()
     last_sync = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     details = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class EmailTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = [
+            "id",
+            "name",
+            "template_type",
+            "subject",
+            "body",
+            "is_active",
+            "is_default",
+            "variables_used",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class EmailTemplateCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = ["name", "template_type", "subject", "body", "is_active", "variables_used"]
+
+    def create(self, validated_data):
+        tenant = self.context["tenant"]
+        return EmailTemplate.objects.create(tenant=tenant, **validated_data)
+
+
+class EmailTemplateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailTemplate
+        fields = ["name", "subject", "body", "is_active", "variables_used"]

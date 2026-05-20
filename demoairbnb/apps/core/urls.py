@@ -2,15 +2,18 @@ from django.urls import path
 
 from .views import (
     CurrentUserView,
+    EmailTemplateViewSet,
     GoogleCalendarCredentialView,
     GoogleCalendarSyncTriggerView,
     InvitationCodeViewSet,
+    LogoutView,
     TenantIntegrationsView,
     TenantRoleViewSet,
     TenantUserViewSet,
     TenantViewSet,
     UserRegistrationView,
 )
+
 
 tenant_list = TenantViewSet.as_view({'get': 'list'})
 tenant_detail = TenantViewSet.as_view(
@@ -30,7 +33,13 @@ invitation_detail = InvitationCodeViewSet.as_view(
     {'get': 'retrieve', 'delete': 'destroy'}
 )
 
+template_list = EmailTemplateViewSet.as_view({'get': 'list', 'post': 'create'})
+template_detail = EmailTemplateViewSet.as_view(
+    {'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}
+)
+
 urlpatterns = [
+    path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
     path('auth/register/', UserRegistrationView.as_view(), name='user-register'),
     path('me/', CurrentUserView.as_view(), name='current-user'),
     path('tenants/', tenant_list, name='tenant-list'),
@@ -56,6 +65,16 @@ urlpatterns = [
         'tenants/<uuid:tenant_id>/invitation-codes/<uuid:code_id>/',
         invitation_detail,
         name='tenant-invitation-detail',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/email-templates/',
+        template_list,
+        name='tenant-email-template-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/email-templates/<uuid:template_id>/',
+        template_detail,
+        name='tenant-email-template-detail',
     ),
     path(
         'tenants/<uuid:tenant_id>/integrations/',

@@ -181,6 +181,62 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
 
+class EmailTemplate(TenantAwareModel):
+    """Email/SMS message templates per tenant."""
+
+    TYPE_CHOICES = [
+        ("booking_confirmation", "Confirmación de Reserva"),
+        ("booking_reminder", "Recordatorio de Reserva"),
+        ("booking_cancellation", "Cancelación de Reserva"),
+        ("guest_welcome", "Bienvenida Huésped"),
+        ("guest_review_request", "Solicitud de Reseña"),
+        ("owner_daily_summary", "Resumen Diario Propietario"),
+        ("payment_receipt", "Recibo de Pago"),
+        ("custom", "Personalizado"),
+    ]
+
+    name = models.CharField(max_length=120, help_text="Nombre interno de la plantilla")
+    template_type = models.CharField(
+        max_length=30,
+        choices=TYPE_CHOICES,
+        help_text="Tipo de plantilla para categorización",
+    )
+    subject = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Asunto del email. Soporta variables: {guest_name}, {property_name}, etc.",
+    )
+    body = models.TextField(
+        help_text="Cuerpo del mensaje. Soporta variables: {guest_name}, {property_name}, {check_in}, {check_out}, etc.",
+    )
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(
+        default=False, help_text="Plantilla por defecto para su tipo"
+    )
+    variables_used = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de variables usadas: ['guest_name', 'property_name']",
+    )
+
+    class Meta:
+        ordering = ["template_type", "name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "template_type"],
+                condition=Q(is_default=True),
+                name="tenant_single_default_email_template",
+            ),
+            models.UniqueConstraint(
+                fields=["tenant", "name"],
+                name="tenant_email_template_unique_name",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.tenant.name} - {self.name}"
+
+
 def default_admin_permissions() -> dict[str, str]:
     return modules_default_permissions(PermissionLevel.ADMIN)
 

@@ -12,8 +12,11 @@ from .views import (
     PaymentViewSet,
     PnLXlsxView,
     ProfitAndLossView,
+    PropertyProfitabilityReportViewSet,
     TaxViewSet,
+    VoucherViewSet,
 )
+
 
 tax_list = TaxViewSet.as_view({'get': 'list', 'post': 'create'})
 tax_detail = TaxViewSet.as_view(
@@ -26,14 +29,28 @@ account_detail = AnalyticAccountViewSet.as_view(
 )
 
 payment_list = PaymentViewSet.as_view({'get': 'list', 'post': 'create'})
-payment_detail = PaymentViewSet.as_view(
-    {'get': 'retrieve', 'delete': 'destroy'}
+payment_detail = PaymentViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'})
+
+analytics_view = FinanceAnalyticsView.as_view()
+profitability_list = PropertyProfitabilityReportViewSet.as_view(
+    {'get': 'list', 'post': 'create'}
 )
+profitability_detail = PropertyProfitabilityReportViewSet.as_view({'get': 'retrieve'})
+profitability_calculate = PropertyProfitabilityReportViewSet.as_view(
+    {'post': 'calculate_for_property'}
+)
+profitability_download = PropertyProfitabilityReportViewSet.as_view(
+    {'get': 'download_pdf'}
+)
+
+voucher_list = VoucherViewSet.as_view({'get': 'list', 'post': 'create'})
+voucher_detail = VoucherViewSet.as_view({'get': 'retrieve'})
+voucher_download = VoucherViewSet.as_view({'get': 'download_pdf'})
 
 urlpatterns = [
     path(
         'tenants/<uuid:tenant_id>/finance/analytics/',
-        FinanceAnalyticsView.as_view(),
+        analytics_view,
         name='finance-analytics',
     ),
     path(
@@ -95,5 +112,40 @@ urlpatterns = [
         'tenants/<uuid:tenant_id>/finance/reports/payments.xlsx',
         PaymentsXlsxView.as_view(),
         name='payments-xlsx',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/profitability/',
+        profitability_list,
+        name='profitability-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/profitability/<uuid:report_id>/',
+        profitability_detail,
+        name='profitability-detail',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/profitability/<uuid:report_id>/download/',
+        profitability_download,
+        name='profitability-download',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/profitability/calculate/',
+        profitability_calculate,
+        name='profitability-calculate',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/vouchers/',
+        voucher_list,
+        name='voucher-list',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/vouchers/<uuid:voucher_id>/',
+        voucher_detail,
+        name='voucher-detail',
+    ),
+    path(
+        'tenants/<uuid:tenant_id>/finance/vouchers/<uuid:voucher_id>/download/',
+        voucher_download,
+        name='voucher-download',
     ),
 ]

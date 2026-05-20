@@ -9,6 +9,8 @@ from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.exceptions import Throttled
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -18,6 +20,7 @@ from .integrations import (
     get_adapter_for_tenant,
 )
 from .models import (
+    EmailTemplate,
     InvitationCode,
     InvitationCodePurpose,
     Tenant,
@@ -30,14 +33,22 @@ from .serializers import (
     IntegrationItemSerializer,
     InvitationCodeCreateSerializer,
     InvitationCodeSerializer,
+    PersonalizedTokenObtainPairSerializer,
     TenantRoleSerializer,
     TenantSerializer,
     TenantUserCreateSerializer,
     TenantUserSerializer,
     TenantUserUpdateSerializer,
     UserRegistrationSerializer,
+    EmailTemplateCreateSerializer,
+    EmailTemplateSerializer,
+    EmailTemplateUpdateSerializer,
 )
 from .services import normalize_integrations_config
+
+
+class PersonalizedTokenObtainPairView(TokenObtainPairView):
+    serializer_class = PersonalizedTokenObtainPairSerializer
 
 
 class CurrentUserView(GenericAPIView):
@@ -94,6 +105,8 @@ class RateLimitedTokenObtainPairView(TokenObtainPairView):
     10 attempts per minute per IP. Override via DJANGO_LOGIN_RATELIMIT env var.
     """
 
+    serializer_class = PersonalizedTokenObtainPairSerializer
+
     @method_decorator(
         ratelimit(key='ip', rate='10/m', method='POST', block=False)
     )
@@ -101,6 +114,27 @@ class RateLimitedTokenObtainPairView(TokenObtainPairView):
         if getattr(request, 'limited', False):
             raise Throttled(detail='Demasiados intentos de login. Intenta en 1 minuto.')
         return super().post(request, *args, **kwargs)
+
+
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh_token') or request.data.get('refresh')
+
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                return Response(
+                    {'detail': 'Invalid refresh token.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        return Response(
+            {'message': 'Logged out successfully'},
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserRegistrationView(GenericAPIView):
@@ -155,7 +189,6 @@ class TenantViewSet(
     (which requires a CREATE_TENANT invitation code) or through the Django
     admin. There is no public POST /api/tenants/ endpoint anymore.
     """
-
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
 
@@ -293,7 +326,6 @@ class TenantIntegrationsView(GenericAPIView):
         )
         return Response(serializer.data)
 
-
 class GoogleCalendarCredentialView(GenericAPIView):
     """GET/PUT the Google Calendar credential for the tenant.
 
@@ -362,3 +394,44 @@ class GoogleCalendarSyncTriggerView(GenericAPIView):
         )
         adapter = get_adapter_for_tenant(tenant_id)
         return Response(adapter.sync_reservation(reservation))
+
+
+class EmailTemplateViewSet(
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Email/SMS message templates per tenant."""
+
+    serializer_class = EmailTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, TenantModulePermission]
+    permission_module = ModuleKey.CORE.value
+    lookup_url_kwarg = "template_id"
+
+    def get_tenant(self):
+        return get_object_or_404(Tenant, id=self.kwargs["tenant_id"])
+
+    def get_queryset(self):
+        return EmailTemplate.all_objects.filter(tenant=self.get_tenant())
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EmailTemplateCreateSerializer
+        if self.action in {"partial_update", "update"}:
+            return EmailTemplateUpdateSerializer
+        return EmailTemplateSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["tenant"] = self.get_tenant()
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(tenant=self.get_tenant())
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
