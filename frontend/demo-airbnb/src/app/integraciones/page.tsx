@@ -3,7 +3,11 @@
 import AppShell from "@/components/app-shell";
 import { ErrorCard, LoadingCard } from "@/components/page-feedback";
 import { useAsyncData } from "@/hooks/use-async-data";
-import { fetchIntegrations, type IntegrationApi } from "@/lib/api";
+import {
+  fetchIntegrations,
+  startGoogleCalendarOAuth,
+  type IntegrationApi,
+} from "@/lib/api";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -13,6 +17,8 @@ import {
   RefreshCw,
   Zap,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Integration = {
   id: string;
@@ -73,10 +79,54 @@ function mapIntegration(integration: IntegrationApi): Integration {
 }
 
 export default function IntegracionesPage() {
-  const { data, error, loading } = useAsyncData(
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const googleParam = searchParams.get("google");
+  const googleReason = searchParams.get("reason");
+
+  const { data, error, loading, reload } = useAsyncData(
     async () => (await fetchIntegrations()).map(mapIntegration),
     [],
   );
+
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [callbackBanner, setCallbackBanner] = useState<
+    { kind: "success" | "error"; message: string } | null
+  >(null);
+
+  useEffect(() => {
+    if (!googleParam) return;
+    if (googleParam === "connected") {
+      setCallbackBanner({
+        kind: "success",
+        message: "Google Calendar conectado correctamente.",
+      });
+    } else if (googleParam === "error") {
+      setCallbackBanner({
+        kind: "error",
+        message: googleReason
+          ? `No se pudo conectar Google Calendar: ${googleReason}`
+          : "No se pudo conectar Google Calendar.",
+      });
+    }
+    router.replace("/integraciones", { scroll: false });
+    reload?.();
+  }, [googleParam, googleReason, router, reload]);
+
+  const handleConnectGoogle = async () => {
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const url = await startGoogleCalendarOAuth();
+      window.location.assign(url);
+    } catch (err) {
+      setConnectError(
+        err instanceof Error ? err.message : "No se pudo iniciar la conexion.",
+      );
+      setConnecting(false);
+    }
+  };
 
   const integrations = data ?? [];
   const connectedCount = integrations.filter(
@@ -125,6 +175,31 @@ export default function IntegracionesPage() {
               title="No fue posible cargar las integraciones"
               message={error}
             />
+          </motion.div>
+        ) : null}
+
+        {callbackBanner ? (
+          <motion.div variants={itemVariants} className="mb-6">
+            <div
+              className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${
+                callbackBanner.kind === "success"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-red-500/30 bg-red-500/10 text-red-300"
+              }`}
+            >
+              {callbackBanner.kind === "success" ? (
+                <Check className="mt-0.5 h-4 w-4" />
+              ) : (
+                <AlertTriangle className="mt-0.5 h-4 w-4" />
+              )}
+              <span>{callbackBanner.message}</span>
+            </div>
+          </motion.div>
+        ) : null}
+
+        {connectError ? (
+          <motion.div variants={itemVariants} className="mb-6">
+            <ErrorCard title="Error al iniciar OAuth de Google" message={connectError} />
           </motion.div>
         ) : null}
 
@@ -221,14 +296,29 @@ export default function IntegracionesPage() {
                     <span />
                   )}
 
-                  <button className="flex items-center gap-1 text-xs text-gold opacity-0 transition-colors hover:text-gold-light group-hover:opacity-100">
-                    {integration.status === "connected"
-                      ? "Configurar"
-                      : integration.status === "error"
-                        ? "Reconectar"
-                        : "Activar"}
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
+                  {integration.id === "google" ? (
+                    <button
+                      onClick={handleConnectGoogle}
+                      disabled={connecting}
+                      className="flex items-center gap-1 rounded-md border border-gold/20 bg-gold/10 px-2.5 py-1 text-xs text-gold transition-colors hover:bg-gold/20 disabled:opacity-50"
+                    >
+                      {connecting
+                        ? "Redirigiendo..."
+                        : integration.status === "connected"
+                          ? "Reconectar con Google"
+                          : "Conectar con Google"}
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  ) : (
+                    <button className="flex items-center gap-1 text-xs text-gold opacity-0 transition-colors hover:text-gold-light group-hover:opacity-100">
+                      {integration.status === "connected"
+                        ? "Configurar"
+                        : integration.status === "error"
+                          ? "Reconectar"
+                          : "Activar"}
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             );

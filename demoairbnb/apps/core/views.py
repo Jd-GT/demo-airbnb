@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
+from django.conf import settings
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.generics import GenericAPIView
@@ -10,7 +14,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .constants import ModuleKey, PermissionLevel
-from .models import Tenant, TenantRole, User, EmailTemplate
+from .integrations import (
+    GoogleCalendarAdapter,
+    save_credential_from_oauth,
+    unsign_state,
+)
+from .models import GoogleCalendarCredential, Tenant, TenantRole, User, EmailTemplate
 from .permissions import TenantModulePermission
 from .serializers import (
     IntegrationItemSerializer,
@@ -141,11 +150,81 @@ class TenantIntegrationsView(GenericAPIView):
 
     def get(self, request, tenant_id):
         tenant = get_object_or_404(Tenant, id=tenant_id)
+        credential = getattr(tenant, "google_calendar_credential", None)
         serializer = self.get_serializer(
-            normalize_integrations_config(tenant.integration_config),
+            normalize_integrations_config(tenant.integration_config, google_credential=credential),
             many=True,
         )
         return Response(serializer.data)
+
+
+class GoogleCalendarOAuthInitView(APIView):
+    """Return a Google authorization URL so the frontend can redirect the user."""
+
+    permission_classes = [permissions.IsAuthenticated, TenantModulePermission]
+    permission_module = ModuleKey.CORE.value
+    required_permission_level = PermissionLevel.WRITE
+
+    def get(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        try:
+            url = GoogleCalendarAdapter.build_authorization_url(str(tenant.id))
+        except RuntimeError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"authorization_url": url})
+
+
+class GoogleCalendarOAuthCallbackView(APIView):
+    """Receive Google's OAuth callback, persist refresh token, redirect to frontend.
+
+    This endpoint is hit by the user's browser after Google redirects back, so it
+    is intentionally unauthenticated. Trust is established via the signed `state`
+    parameter that carries the tenant id.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        error = request.query_params.get("error")
+        code = request.query_params.get("code")
+        state = request.query_params.get("state")
+
+        frontend_base = settings.FRONTEND_URL.rstrip("/") + "/integraciones"
+
+        if error:
+            return self._redirect_to_frontend(frontend_base, {"google": "error", "reason": error})
+
+        if not code or not state:
+            return self._redirect_to_frontend(
+                frontend_base, {"google": "error", "reason": "missing_code_or_state"}
+            )
+
+        try:
+            tenant_id = unsign_state(state)
+        except ValueError as exc:
+            return self._redirect_to_frontend(
+                frontend_base, {"google": "error", "reason": str(exc)}
+            )
+
+        tenant = Tenant.objects.filter(id=tenant_id).first()
+        if not tenant:
+            return self._redirect_to_frontend(
+                frontend_base, {"google": "error", "reason": "tenant_not_found"}
+            )
+
+        try:
+            exchange = GoogleCalendarAdapter.exchange_code(code)
+            save_credential_from_oauth(tenant=tenant, exchange=exchange)
+        except Exception as exc:  # noqa: BLE001 — return all failures to the UI
+            return self._redirect_to_frontend(
+                frontend_base, {"google": "error", "reason": str(exc)[:200]}
+            )
+
+        return self._redirect_to_frontend(frontend_base, {"google": "connected"})
+
+    @staticmethod
+    def _redirect_to_frontend(base: str, params: dict) -> HttpResponseRedirect:
+        return HttpResponseRedirect(f"{base}?{urlencode(params)}")
 
 
 class EmailTemplateViewSet(

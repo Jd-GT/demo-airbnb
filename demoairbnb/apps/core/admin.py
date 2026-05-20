@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Tenant, TenantRole, User, EmailTemplate
+from .models import GoogleCalendarCredential, Tenant, TenantRole, User, EmailTemplate
 
 @admin.register(Tenant)
 class TenantAdmin(admin.ModelAdmin):
@@ -53,6 +53,28 @@ class UserAdmin(DjangoUserAdmin):
                 "fields": ("email", "full_name", "password1", "password2", "is_staff", "is_superuser"),
             },
         ),
+    )
+
+
+@admin.register(GoogleCalendarCredential)
+class GoogleCalendarCredentialAdmin(admin.ModelAdmin):
+    list_display = (
+        "tenant",
+        "google_account_email",
+        "calendar_id",
+        "is_active",
+        "last_sync_status",
+        "last_sync_at",
+    )
+    list_filter = ("is_active", "last_sync_status")
+    search_fields = ("tenant__name", "google_account_email")
+    readonly_fields = (
+        "refresh_token_encrypted",
+        "last_sync_at",
+        "last_sync_status",
+        "last_sync_error",
+        "created_at",
+        "updated_at",
     )
 
 

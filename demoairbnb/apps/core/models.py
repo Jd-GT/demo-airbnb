@@ -218,6 +218,32 @@ class EmailTemplate(TenantAwareModel):
         return f"{self.tenant.name} - {self.name}"
 
 
+class GoogleCalendarCredential(TimeStampedUUIDModel):
+    """OAuth2 credential and sync state for a tenant's Google Calendar integration."""
+
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("connected", "Connected"),
+        ("error", "Error"),
+    ]
+
+    tenant = models.OneToOneField(
+        Tenant, on_delete=models.CASCADE, related_name="google_calendar_credential"
+    )
+    refresh_token_encrypted = models.TextField()
+    calendar_id = models.CharField(max_length=255, default="primary")
+    google_account_email = models.EmailField(blank=True)
+    is_active = models.BooleanField(default=False)
+    last_sync_at = models.DateTimeField(null=True, blank=True)
+    last_sync_status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default="pending"
+    )
+    last_sync_error = models.TextField(blank=True)
+
+    def __str__(self) -> str:
+        return f"GoogleCalendarCredential({self.tenant.name})"
+
+
 def default_admin_permissions() -> dict[str, str]:
     return modules_default_permissions(PermissionLevel.ADMIN)
 

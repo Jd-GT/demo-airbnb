@@ -6,7 +6,14 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import environ
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+_env_file = BASE_DIR.parent / ".env"
+if _env_file.exists():
+    environ.Env.read_env(str(_env_file))
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "change-me-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
@@ -147,3 +154,22 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Sprint 1 API contract for multi-tenant PMS backend.",
     "VERSION": "1.0.0-sprint1",
 }
+
+# Encryption for sensitive credentials (Google refresh tokens, etc.)
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FERNET_KEY = env("FERNET_KEY", default="")
+
+# Google Calendar OAuth
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+GOOGLE_REDIRECT_URI = env(
+    "GOOGLE_REDIRECT_URI",
+    default="http://localhost:8000/api/integrations/google-calendar/oauth-callback/",
+)
+GOOGLE_OAUTH_SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/calendar.events",
+]
+
+# Frontend URL used to redirect after OAuth callback.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")

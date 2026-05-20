@@ -73,7 +73,11 @@ def build_default_integration_config() -> dict:
     return {"integrations": [integration.copy() for integration in DEFAULT_TENANT_INTEGRATIONS]}
 
 
-def normalize_integrations_config(integration_config: dict | None) -> list[dict]:
+def normalize_integrations_config(
+    integration_config: dict | None,
+    *,
+    google_credential=None,
+) -> list[dict]:
     ordered_ids = [integration["id"] for integration in DEFAULT_TENANT_INTEGRATIONS]
     integrations_by_id = {
         integration["id"]: integration.copy()
@@ -124,6 +128,46 @@ def normalize_integrations_config(integration_config: dict | None) -> list[dict]
         integrations_by_id[integration_id] = base_item
         if integration_id not in ordered_ids:
             ordered_ids.append(integration_id)
+
+    if google_credential is not None:
+        google_item = integrations_by_id.get("google", {}).copy()
+        if google_credential.is_active and google_credential.last_sync_status == "connected":
+            status_value = "connected"
+            details = (
+                f"Conectado como {google_credential.google_account_email}"
+                if google_credential.google_account_email
+                else "Calendario conectado"
+            )
+        elif google_credential.last_sync_status == "error":
+            status_value = "error"
+            details = google_credential.last_sync_error or "Error de sincronización"
+        else:
+            status_value = "pending"
+            details = "Autorización pendiente"
+
+        last_sync = None
+        if google_credential.last_sync_at:
+            last_sync = google_credential.last_sync_at.isoformat()
+
+        google_item.update(
+            {
+                "id": "google",
+                "name": google_item.get("name", "Google Calendar"),
+                "description": google_item.get(
+                    "description", "Sincronizacion de calendario con Google"
+                ),
+                "icon": google_item.get("icon", "📅"),
+                "color": google_item.get("color", "#4285F4"),
+                "status": status_value,
+                "details": details,
+                "last_sync": last_sync,
+            }
+        )
+        integrations_by_id["google"] = google_item
+    else:
+        google_item = integrations_by_id.get("google", {}).copy()
+        google_item.update({"status": "pending", "details": "Sin conectar", "last_sync": None})
+        integrations_by_id["google"] = google_item
 
     return [integrations_by_id[integration_id] for integration_id in ordered_ids]
 

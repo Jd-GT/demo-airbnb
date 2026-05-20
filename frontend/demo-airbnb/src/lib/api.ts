@@ -694,6 +694,17 @@ export async function fetchIntegrations(): Promise<IntegrationApi[]> {
   );
 }
 
+export async function startGoogleCalendarOAuth(): Promise<string> {
+  const session = await ensureDemoSession();
+  const { authorization_url } = await requestWithSession<{
+    authorization_url: string;
+  }>(
+    `/api/tenants/${session.tenantId}/integrations/google-calendar/oauth-init/`,
+    session,
+  );
+  return authorization_url;
+}
+
 export function shiftMonth(year: number, month: number, delta: number) {
   const shifted = new Date(year, month - 1 + delta, 1);
   return {

@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    GoogleCalendarOAuthCallbackView,
+    GoogleCalendarOAuthInitView,
     LogoutView,
     EmailTemplateViewSet,
     TenantIntegrationsView,
@@ -43,4 +45,14 @@ urlpatterns = [
         name="tenant-email-template-detail",
     ),
     path("tenants/<uuid:tenant_id>/integrations/", TenantIntegrationsView.as_view(), name="tenant-integrations"),
+    path(
+        "tenants/<uuid:tenant_id>/integrations/google-calendar/oauth-init/",
+        GoogleCalendarOAuthInitView.as_view(),
+        name="google-calendar-oauth-init",
+    ),
+    path(
+        "integrations/google-calendar/oauth-callback/",
+        GoogleCalendarOAuthCallbackView.as_view(),
+        name="google-calendar-oauth-callback",
+    ),
 ]
