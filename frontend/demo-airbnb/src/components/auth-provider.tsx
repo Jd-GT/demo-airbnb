@@ -57,15 +57,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
 
-      const isLoginPage = pathname === "/login";
-      // Rutas publicas que no requieren sesion (landing, callbacks publicos, etc.)
-      const PUBLIC_ROUTES = ["/", "/signup"];
-      const isPublic =
-        PUBLIC_ROUTES.includes(pathname) || pathname.startsWith("/login");
-      if (!auth && !isPublic) {
-        router.push("/login");
-      } else if (auth && isLoginPage) {
-        router.push("/");
+      // Public routes: landing y formularios de entrada. Cualquiera
+      // (logueado o no) las puede ver, pero si ya estás logueado y
+      // entras a login/signup te mandamos al dashboard.
+      const publicPrefixes = ["/login", "/signup"];
+      const landingExact = pathname === "/";
+      const onPublicForm = publicPrefixes.some((p) => pathname.startsWith(p));
+
+      if (!auth) {
+        // Sin sesión: solo permitimos landing + public forms.
+        if (!landingExact && !onPublicForm) {
+          router.push("/login");
+        }
+      } else {
+        // Con sesión: si está parado en login/signup → dashboard.
+        // La landing "/" la dejamos pasar porque la lógica de redirect
+        // a /dashboard la maneja el propio componente landing.
+        if (onPublicForm) {
+          router.push("/dashboard");
+        }
       }
     }
     bootstrap();

@@ -23,7 +23,7 @@ import { useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/reservas", label: "Reservas", icon: ClipboardList },
   { href: "/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/propiedades", label: "Propiedades", icon: Building2 },
