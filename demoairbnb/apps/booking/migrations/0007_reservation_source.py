@@ -1,0 +1,29 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('booking', '0006_historicalreservation_extras_received_and_more'),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name='reservation',
+            name='source',
+            field=models.CharField(
+                choices=[('manual', 'Manual'), ('ical', 'iCal (externo)')],
+                default='manual',
+                max_length=20,
+            ),
+        ),
+        migrations.AddField(
+            model_name='historicalreservation',
+            name='source',
+            field=models.CharField(
+                choices=[('manual', 'Manual'), ('ical', 'iCal (externo)')],
+                default='manual',
+                max_length=20,
+            ),
+        ),
+    ]

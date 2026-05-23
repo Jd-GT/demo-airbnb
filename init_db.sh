@@ -46,12 +46,12 @@ admins = [
     {
         'email': os.environ.get('SUPERADMIN_EMAIL_1', 'admin@admin.com'),
         'password': os.environ.get('SUPERADMIN_PASSWORD_1', 'admin123'),
-        'full_name': 'Admin Superuser',
+        'full_name': os.environ.get('SUPERADMIN_NAME_1', 'Admin Superuser'),
     },
     {
-        'email': os.environ.get('SUPERADMIN_EMAIL_2', 'afprietol2005@gmail.com'),
-        'password': os.environ.get('SUPERADMIN_PASSWORD_2', 'changeme-set-env'),
-        'full_name': 'Andres Prieto',
+        'email': os.environ.get('SUPERADMIN_EMAIL_2', ''),
+        'password': os.environ.get('SUPERADMIN_PASSWORD_2', ''),
+        'full_name': os.environ.get('SUPERADMIN_NAME_2', 'Admin 2'),
     },
 ]
 for cfg in admins:

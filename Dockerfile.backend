@@ -16,7 +16,6 @@ COPY init_db.sh /app/init_db.sh
 # Normalize line endings (works around Windows CRLF) and make executable
 RUN sed -i 's/\r$//' /app/init_db.sh && chmod +x /app/init_db.sh
 
-RUN python demoairbnb/manage.py makemigrations core inventory crm booking finance ops
 
 ENV PYTHONUNBUFFERED=1
 ENV DJANGO_SETTINGS_MODULE=demoairbnb.settings
