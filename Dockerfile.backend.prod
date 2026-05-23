@@ -1,0 +1,36 @@
+# Production image for the Django backend.
+#
+# Diferencias vs Dockerfile.backend (dev):
+#   - Instala gunicorn + whitenoise
+#   - Recopila staticos en build time
+#   - Setea DJANGO_SERVER=gunicorn para que init_db.sh use gunicorn
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc \
+        libpq-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir "gunicorn>=23,<24" "whitenoise>=6.7,<7"
+
+COPY demoairbnb/ ./demoairbnb/
+COPY init_db.sh /app/init_db.sh
+RUN sed -i 's/\r$//' /app/init_db.sh && chmod +x /app/init_db.sh
+
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=demoairbnb.settings
+ENV DJANGO_SERVER=gunicorn
+ENV DJANGO_DEBUG=False
+# STATIC_ROOT is read from settings.py; we pre-populate it now so the
+# image can serve assets without depending on a startup script.
+RUN mkdir -p /app/staticfiles
+
+EXPOSE 8000
+
+CMD ["/app/init_db.sh"]

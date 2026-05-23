@@ -1,0 +1,60 @@
+# Caddy reverse proxy.
+#
+# Modo por defecto: HTTP plano por puerto 80. Funciona con IP cruda
+# (ej. 20.43.18.174) o con un dominio sin certificado.
+#
+# Cuando tengas dominio + DNS, descomenta el bloque "HTTPS con dominio"
+# y comenta el bloque "HTTP only" para que Let's Encrypt emita el cert
+# automáticamente.
+
+# --- HTTP only (IP cruda o dominio sin TLS) ---
+:80 {
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+    handle /admin/* {
+        reverse_proxy backend:8000
+    }
+    handle /static/* {
+        reverse_proxy backend:8000
+    }
+    handle /healthz {
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+
+    encode gzip
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "same-origin"
+    }
+}
+
+# --- HTTPS con dominio (descomenta cuando tengas DNS funcionando) ---
+#
+# {$DOMAIN} {
+#     handle /api/* {
+#         reverse_proxy backend:8000
+#     }
+#     handle /admin/* {
+#         reverse_proxy backend:8000
+#     }
+#     handle /static/* {
+#         reverse_proxy backend:8000
+#     }
+#     handle /healthz {
+#         reverse_proxy backend:8000
+#     }
+#     handle {
+#         reverse_proxy frontend:3000
+#     }
+#     encode gzip
+#     header {
+#         X-Content-Type-Options "nosniff"
+#         Referrer-Policy "same-origin"
+#         Strict-Transport-Security "max-age=31536000"
+#     }
+# }

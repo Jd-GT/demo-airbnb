@@ -1,0 +1,101 @@
+# Production stack for Azure VM (or any single-host Docker host).
+#
+# Usage:
+#   1. cp .env.production.example .env.production
+#   2. edit .env.production with real secrets + domain
+#   3. docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Topology:
+#   caddy   :80/:443  --(reverse proxy + auto HTTPS)-->  backend:8000 and frontend:3000
+#   backend :8000     gunicorn + django + whitenoise
+#   frontend:3000     next.js standalone
+#   db                postgres 16 with persistent volume
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend.prod
+    restart: unless-stopped
+    environment:
+      # Django core
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+      DJANGO_CORS_ALLOWED_ORIGINS: ${DJANGO_CORS_ALLOWED_ORIGINS}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS}
+      DJANGO_FERNET_KEY: ${DJANGO_FERNET_KEY}
+      DJANGO_HSTS_SECONDS: ${DJANGO_HSTS_SECONDS:-0}
+      # Server
+      DJANGO_SERVER: gunicorn
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      # DB
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      # Bootstrap super-admins
+      SUPERADMIN_EMAIL_1: ${SUPERADMIN_EMAIL_1}
+      SUPERADMIN_PASSWORD_1: ${SUPERADMIN_PASSWORD_1}
+      SUPERADMIN_EMAIL_2: ${SUPERADMIN_EMAIL_2}
+      SUPERADMIN_PASSWORD_2: ${SUPERADMIN_PASSWORD_2}
+      SUPERADMIN_RESET: ${SUPERADMIN_RESET:-0}
+      SEED_DEMO_TENANT: ${SEED_DEMO_TENANT:-0}
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        # Bake the API URL into the Next.js bundle. Must be set BEFORE build.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    depends_on:
+      - backend
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    environment:
+      DOMAIN: ${DOMAIN}
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
