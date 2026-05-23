@@ -9,7 +9,7 @@ import {
 } from "./authService";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
 
 const SESSION_STORAGE_KEY = "demo-airbnb.session.v1";
