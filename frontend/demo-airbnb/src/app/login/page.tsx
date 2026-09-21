@@ -411,7 +411,7 @@ function Field({
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <p className="text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
+    <p className="whitespace-pre-line text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
       {message}
     </p>
   );

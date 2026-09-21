@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  Crown,
   DollarSign,
   LayoutDashboard,
   Link2,
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/tareas", label: "Tareas", icon: Brush },
   { href: "/plantillas", label: "Plantillas", icon: MessageSquare },
   { href: "/integraciones", label: "Integraciones", icon: Link2 },
+  { href: "/memberships", label: "Planes", icon: Crown },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -140,10 +142,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               exit={{ opacity: 0 }}
               className="border-t border-border p-4"
             >
-              <div className="glass-card rounded-lg p-3">
+              <Link href="/memberships" className="glass-card block rounded-lg p-3 transition-colors hover:border-gold/30">
                 <p className="text-xs text-muted-foreground">Property Manager</p>
                 <p className="mt-0.5 text-xs font-medium text-gold">Plan Premium</p>
-              </div>
+              </Link>
             </motion.div>
           )}
         </AnimatePresence>

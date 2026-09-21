@@ -472,6 +472,43 @@ class ApiError extends Error {
   }
 }
 
+const API_ERROR_LABELS: Record<string, string> = {
+  detail: "Detalle",
+  non_field_errors: "Error",
+  invitation_code: "Codigo de invitacion",
+  email: "Email",
+  full_name: "Nombre completo",
+  password: "Contrasena",
+  tenant_name: "Nombre comercial de tu empresa",
+  tenant_subdomain: "Subdominio para tu empresa",
+  tenant_subdomain_join: "Subdominio de la empresa",
+};
+
+function formatApiErrorPayload(payload: unknown): string | null {
+  function collect(value: unknown, key?: string): string[] {
+    const label = key ? (API_ERROR_LABELS[key] ?? key) : "";
+
+    if (typeof value === "string") {
+      return [label ? `${label}: ${value}` : value];
+    }
+
+    if (Array.isArray(value)) {
+      return value.flatMap((item) => collect(item, key));
+    }
+
+    if (value && typeof value === "object") {
+      return Object.entries(value).flatMap(([childKey, childValue]) =>
+        collect(childValue, childKey),
+      );
+    }
+
+    return [];
+  }
+
+  const messages = collect(payload);
+  return messages.length > 0 ? messages.join("\n") : null;
+}
+
 const PERMISSION_RANK: Record<PermissionLevel, number> = {
   none: 0,
   read: 1,
@@ -636,9 +673,8 @@ async function rawRequest<T>(path: string, options: RawRequestOptions = {}): Pro
 
   if (!response.ok) {
     const message =
-      typeof payload === "object" && payload !== null && "detail" in payload
-        ? String((payload as { detail: string }).detail)
-        : `La peticion a ${path} fallo con estado ${response.status}.`;
+      formatApiErrorPayload(payload) ??
+      `La peticion a ${path} fallo con estado ${response.status}.`;
     throw new ApiError(message, response.status, payload);
   }
 
