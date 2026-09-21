@@ -15,7 +15,7 @@ const REFRESH_KEY = "demo-airbnb.refresh_token";
 const USER_KEY = "demo-airbnb.current_user";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
   "http://localhost:8000";
 
 export type StoredUser = {

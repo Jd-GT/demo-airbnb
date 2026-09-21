@@ -137,8 +137,9 @@ STATICFILES_STORAGE = (
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = False  # let Caddy/ALB handle this
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    _https = os.getenv('HTTPS_ENABLED', 'False').lower() == 'true'
+    SESSION_COOKIE_SECURE = _https
+    CSRF_COOKIE_SECURE = _https
     SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_HSTS_SECONDS', '0'))
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
